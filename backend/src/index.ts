@@ -18,8 +18,15 @@ app.use(requestLogger);
 app.use(globalLimiter);
 
 // ========== Health Check ==========
-app.get("/health", (_req, res) => {
-  res.json({ status: "ok", timestamp: new Date().toISOString() });
+import { checkSolanaHealth } from "./services/solana.service";
+
+app.get("/health", async (_req, res) => {
+  const solana = await checkSolanaHealth();
+  res.json({
+    status: "ok",
+    timestamp: new Date().toISOString(),
+    solana,
+  });
 });
 
 // ========== API Routes ==========

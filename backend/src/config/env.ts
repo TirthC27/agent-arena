@@ -29,4 +29,9 @@ export const env = {
   RATE_LIMIT_WINDOW_MS: parseInt(process.env.RATE_LIMIT_WINDOW_MS || "900000", 10),
   RATE_LIMIT_MAX: parseInt(process.env.RATE_LIMIT_MAX || "100", 10),
   AI_RATE_LIMIT_MAX: parseInt(process.env.AI_RATE_LIMIT_MAX || "20", 10),
+
+  // Solana (optional — backend works without these, Solana features degrade gracefully)
+  SOLANA_RPC_URL: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
+  SOLANA_AUTHORITY_KEYPAIR: process.env.SOLANA_AUTHORITY_KEYPAIR || "[]",
+  ANCHOR_PROGRAM_ID: process.env.ANCHOR_PROGRAM_ID || "AjEeXL7uxDbPp3EebeUH9g8uE59E66NHWuwYFUfS1n2L",
 };

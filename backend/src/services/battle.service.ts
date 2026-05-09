@@ -5,6 +5,7 @@ import { buildBattlePrompt } from "./ai/prompts/battle.prompts";
 import { calculateElo, capitalize } from "../utils/scoring";
 import { ApiError } from "../utils/ApiError";
 import { BattleCategory, QueueEntry } from "../types";
+import { recordBattleOnChain, getExplorerUrl } from "./solana.service";
 
 // In-memory matchmaking queue (Redis in V2)
 const matchmakingQueue = new Map<string, QueueEntry>();
@@ -170,6 +171,33 @@ export async function executeBattle(battleId: string) {
         1.5
       ),
     ]);
+
+    // 8. Record battle on-chain (fire-and-forget, graceful degradation)
+    recordBattleOnChain({
+      agent1Wallet: battle.agent1.userId, // Will be wallet address in production
+      agent1Name: battle.agent1.name,
+      agent2Wallet: battle.agent2.userId,
+      agent2Name: battle.agent2.name,
+      result: judgement.winner,
+      category: battle.category,
+      score1: judgement.score1,
+      score2: judgement.score2,
+      battleData: {
+        prompt,
+        agent1Response: resp1,
+        agent2Response: resp2,
+        judgement: judgement.reasoning,
+      },
+    })
+      .then((result) => {
+        if (result) {
+          console.log(`[SOLANA] Battle recorded on-chain: ${result.battlePDA}`);
+          console.log(`[SOLANA] Explorer: ${getExplorerUrl(result.battlePDA)}`);
+        }
+      })
+      .catch((err) => {
+        console.error(`[SOLANA] On-chain recording failed (non-fatal):`, err.message);
+      });
 
     console.log(
       `[BATTLE] Completed ${battleId}: ${battle.agent1.name} vs ${battle.agent2.name} → ${judgement.winner}`
