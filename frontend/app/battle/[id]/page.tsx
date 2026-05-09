@@ -1,21 +1,36 @@
 "use client";
 
 import { useState, useEffect, use } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { api } from "@/lib/api";
 import { Battle } from "@/types";
 import Card from "@/components/ui/Card";
 import Badge from "@/components/ui/Badge";
 import Skeleton from "@/components/ui/Skeleton";
+import Typewriter from "@/components/ui/Typewriter";
+import ScoreCounter from "@/components/ui/ScoreCounter";
+import Confetti from "@/components/ui/Confetti";
+
+type BattlePhase =
+  | "loading"
+  | "prompt"
+  | "thinking"
+  | "responding"
+  | "judging"
+  | "verdict"
+  | "complete";
 
 export default function BattlePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const [battle, setBattle] = useState<Battle | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [phase, setPhase] = useState<BattlePhase>("loading");
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [agent1Done, setAgent1Done] = useState(false);
+  const [agent2Done, setAgent2Done] = useState(false);
 
+  // Load and poll battle
   useEffect(() => {
     loadBattle();
-    // Poll for updates if battle is in progress
     const interval = setInterval(async () => {
       try {
         const data = await api.getBattle(id);
@@ -24,8 +39,7 @@ export default function BattlePage({ params }: { params: Promise<{ id: string }>
           clearInterval(interval);
         }
       } catch { /* ignore */ }
-    }, 3000);
-
+    }, 2000);
     return () => clearInterval(interval);
   }, [id]);
 
@@ -33,211 +47,456 @@ export default function BattlePage({ params }: { params: Promise<{ id: string }>
     try {
       const data = await api.getBattle(id);
       setBattle(data);
+
+      // If already completed, show dramatic reveal sequence
+      if (data.status === "completed") {
+        runCompletedSequence();
+      } else {
+        setPhase("prompt");
+      }
     } catch (err) {
       console.error("Failed to load battle:", err);
-    } finally {
-      setLoading(false);
     }
   }
 
-  if (loading) {
+  // Dramatic reveal sequence for completed battles
+  function runCompletedSequence() {
+    setPhase("prompt");
+    setTimeout(() => setPhase("responding"), 1000);
+    setTimeout(() => setPhase("judging"), 3000);
+    setTimeout(() => {
+      setPhase("verdict");
+    }, 4500);
+    setTimeout(() => {
+      setPhase("complete");
+      setShowConfetti(true);
+    }, 6000);
+  }
+
+  // Watch for battle completion during live polling
+  useEffect(() => {
+    if (battle?.status === "completed" && phase === "prompt") {
+      runCompletedSequence();
+    }
+  }, [battle?.status]);
+
+  // Both typewriters done → move to judging
+  useEffect(() => {
+    if (agent1Done && agent2Done && phase === "responding") {
+      setTimeout(() => setPhase("judging"), 800);
+      setTimeout(() => setPhase("verdict"), 2500);
+      setTimeout(() => {
+        setPhase("complete");
+        setShowConfetti(true);
+      }, 4000);
+    }
+  }, [agent1Done, agent2Done, phase]);
+
+  if (!battle) {
     return (
-      <div className="max-w-5xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
         <Skeleton className="h-12 w-64 mx-auto" />
-        <div className="grid grid-cols-2 gap-6">
-          <Skeleton className="h-64" />
-          <Skeleton className="h-64" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Skeleton className="h-72" />
+          <Skeleton className="h-72" />
         </div>
       </div>
     );
   }
 
-  if (!battle) {
-    return (
-      <div className="text-center py-20">
-        <div className="text-4xl mb-3">❌</div>
-        <p className="text-text-secondary">Battle not found</p>
-      </div>
-    );
-  }
-
-  const isCompleted = battle.status === "completed";
-  const isInProgress = battle.status === "in_progress" || battle.status === "pending";
+  const isWinner = (agentId: string) =>
+    phase === "complete" && battle.winnerId === agentId;
+  const isLoser = (agentId: string) =>
+    phase === "complete" && battle.winnerId !== null && battle.winnerId !== agentId;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8 relative">
+      <Confetti trigger={showConfetti} />
+
       {/* Header */}
-      <div className="text-center mb-8">
-        <Badge variant={isCompleted ? "green" : isInProgress ? "cyan" : "gray"} size="md">
-          {battle.status === "in_progress"
-            ? "⚡ Battle in Progress"
-            : battle.status === "completed"
-            ? "✅ Completed"
-            : battle.status === "pending"
-            ? "⏳ Starting..."
-            : "❌ Cancelled"}
+      <motion.div
+        className="text-center mb-8"
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+      >
+        <Badge
+          variant={
+            phase === "complete"
+              ? "gold"
+              : phase === "judging"
+              ? "purple"
+              : "cyan"
+          }
+          size="md"
+        >
+          {phase === "loading" && "Loading..."}
+          {phase === "prompt" && "📋 Challenge Issued"}
+          {phase === "thinking" && "🧠 Agents Thinking..."}
+          {phase === "responding" && "✍️ Agents Responding..."}
+          {phase === "judging" && "⚖️ Judge Deliberating..."}
+          {phase === "verdict" && "📊 Scores Revealed"}
+          {phase === "complete" && "🏆 Battle Complete"}
         </Badge>
+
         <h1 className="text-3xl font-bold mt-4">
-          {battle.agent1.name} <span className="text-text-muted">vs</span>{" "}
-          {battle.agent2.name}
+          <span className={isWinner(battle.agent1.id) ? "text-accent-gold" : ""}>
+            {battle.agent1.name}
+          </span>
+          <motion.span
+            className="mx-4 text-text-muted"
+            animate={
+              phase === "prompt"
+                ? { scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }
+                : {}
+            }
+            transition={{ duration: 1.5, repeat: phase === "prompt" ? Infinity : 0 }}
+          >
+            VS
+          </motion.span>
+          <span className={isWinner(battle.agent2.id) ? "text-accent-gold" : ""}>
+            {battle.agent2.name}
+          </span>
         </h1>
+
         {battle.category && (
           <p className="text-text-secondary mt-1 capitalize">
             {battle.category} Battle
           </p>
         )}
-      </div>
+      </motion.div>
 
       {/* Challenge Prompt */}
-      {battle.prompt && (
-        <Card className="mb-8">
-          <div className="text-xs text-text-muted uppercase tracking-wider mb-2">
-            Challenge
-          </div>
-          <p className="text-text-primary">{battle.prompt}</p>
-        </Card>
-      )}
+      <AnimatePresence>
+        {battle.prompt && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8"
+          >
+            <Card>
+              <div className="text-xs text-accent-cyan uppercase tracking-wider mb-2 font-semibold">
+                ⚡ Challenge
+              </div>
+              <p className="text-text-primary text-lg">{battle.prompt}</p>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Agent Responses */}
+      {/* Agent Responses — Side by Side */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         {/* Agent 1 */}
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -30 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.2 }}
+          transition={{ delay: 0.3 }}
         >
-          <Card
-            glow={
-              isCompleted && battle.winnerId === battle.agent1.id
-                ? "gold"
-                : "none"
-            }
+          <div
+            className={`rounded-2xl border p-5 transition-all duration-500 ${
+              isWinner(battle.agent1.id)
+                ? "border-accent-gold bg-accent-gold/5 glow-gold"
+                : isLoser(battle.agent1.id)
+                ? "border-border bg-bg-card opacity-70"
+                : "border-border bg-bg-card"
+            }`}
           >
+            {/* Agent Header */}
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-accent-cyan/20 flex items-center justify-center text-sm font-bold">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-cyan/20 to-accent-cyan/5 border border-accent-cyan/20 flex items-center justify-center font-bold">
                   {battle.agent1.name.charAt(0)}
                 </div>
-                <span className="font-semibold">{battle.agent1.name}</span>
+                <div>
+                  <div className="font-semibold">{battle.agent1.name}</div>
+                  <div className="text-xs text-text-muted">
+                    ELO {battle.agent1.eloOverall || "—"}
+                  </div>
+                </div>
               </div>
-              {isCompleted && battle.winnerId === battle.agent1.id && (
-                <Badge variant="gold">🏆 Winner</Badge>
+              {isWinner(battle.agent1.id) && (
+                <motion.div
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 200 }}
+                >
+                  <Badge variant="gold">🏆 Winner</Badge>
+                </motion.div>
               )}
-              {isCompleted && battle.score1 !== null && (
-                <span className="text-2xl font-bold text-accent-cyan">
-                  {battle.score1}
-                </span>
+              {phase === "verdict" || phase === "complete"
+                ? battle.score1 !== null && (
+                    <div className="text-3xl">
+                      <ScoreCounter target={battle.score1} delay={300} />
+                    </div>
+                  )
+                : null}
+            </div>
+
+            {/* Response Body */}
+            <div className="min-h-[120px]">
+              {!battle.agent1Response &&
+                (phase === "thinking" || phase === "prompt") && (
+                  <div className="flex items-center gap-2 text-text-muted text-sm py-8 justify-center">
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-accent-cyan"
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-accent-cyan"
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-accent-cyan"
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                    />
+                    <span className="ml-2">Thinking...</span>
+                  </div>
+                )}
+              {battle.agent1Response && phase !== "prompt" && (
+                <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+                  <Typewriter
+                    text={battle.agent1Response}
+                    speed={20}
+                    delay={500}
+                    onComplete={() => setAgent1Done(true)}
+                  />
+                </p>
               )}
             </div>
-            {battle.agent1Response ? (
-              <p className="text-sm text-text-secondary whitespace-pre-wrap">
-                {battle.agent1Response}
-              </p>
-            ) : (
-              <div className="flex items-center gap-2 text-text-muted text-sm">
+
+            {/* ELO Change */}
+            <AnimatePresence>
+              {phase === "complete" && battle.eloChange1 !== null && (
                 <motion.div
-                  className="w-2 h-2 rounded-full bg-accent-cyan"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                />
-                Thinking...
-              </div>
-            )}
-          </Card>
+                  className="mt-4 pt-3 border-t border-border text-sm text-center"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.5 }}
+                >
+                  <span
+                    className={
+                      (battle.eloChange1 ?? 0) >= 0
+                        ? "text-green-400 font-semibold"
+                        : "text-accent-pink"
+                    }
+                  >
+                    {(battle.eloChange1 ?? 0) >= 0 ? "▲" : "▼"}{" "}
+                    {Math.abs(battle.eloChange1 ?? 0)} ELO
+                  </span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </motion.div>
 
         {/* Agent 2 */}
         <motion.div
-          initial={{ opacity: 0, x: 20 }}
+          initial={{ opacity: 0, x: 30 }}
           animate={{ opacity: 1, x: 0 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.4 }}
         >
-          <Card
-            glow={
-              isCompleted && battle.winnerId === battle.agent2.id
-                ? "gold"
-                : "none"
-            }
+          <div
+            className={`rounded-2xl border p-5 transition-all duration-500 ${
+              isWinner(battle.agent2.id)
+                ? "border-accent-gold bg-accent-gold/5 glow-gold"
+                : isLoser(battle.agent2.id)
+                ? "border-border bg-bg-card opacity-70"
+                : "border-border bg-bg-card"
+            }`}
           >
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-accent-purple/20 flex items-center justify-center text-sm font-bold">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-accent-purple/20 to-accent-purple/5 border border-accent-purple/20 flex items-center justify-center font-bold">
                   {battle.agent2.name.charAt(0)}
                 </div>
-                <span className="font-semibold">{battle.agent2.name}</span>
+                <div>
+                  <div className="font-semibold">{battle.agent2.name}</div>
+                  <div className="text-xs text-text-muted">
+                    ELO {battle.agent2.eloOverall || "—"}
+                  </div>
+                </div>
               </div>
-              {isCompleted && battle.winnerId === battle.agent2.id && (
-                <Badge variant="gold">🏆 Winner</Badge>
-              )}
-              {isCompleted && battle.score2 !== null && (
-                <span className="text-2xl font-bold text-accent-purple">
-                  {battle.score2}
-                </span>
-              )}
-            </div>
-            {battle.agent2Response ? (
-              <p className="text-sm text-text-secondary whitespace-pre-wrap">
-                {battle.agent2Response}
-              </p>
-            ) : (
-              <div className="flex items-center gap-2 text-text-muted text-sm">
+              {isWinner(battle.agent2.id) && (
                 <motion.div
-                  className="w-2 h-2 rounded-full bg-accent-purple"
-                  animate={{ opacity: [0.3, 1, 0.3] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                />
-                Thinking...
-              </div>
-            )}
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Judge Verdict */}
-      {isCompleted && battle.judgement && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Card glow="purple">
-            <div className="text-xs text-text-muted uppercase tracking-wider mb-2">
-              ⚖️ Judge&apos;s Verdict
+                  initial={{ scale: 0, rotate: -180 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  transition={{ type: "spring", stiffness: 200 }}
+                >
+                  <Badge variant="gold">🏆 Winner</Badge>
+                </motion.div>
+              )}
+              {phase === "verdict" || phase === "complete"
+                ? battle.score2 !== null && (
+                    <div className="text-3xl">
+                      <ScoreCounter target={battle.score2} delay={600} />
+                    </div>
+                  )
+                : null}
             </div>
-            <p className="text-text-primary">{battle.judgement}</p>
-            {battle.eloChange1 !== null && (
-              <div className="flex gap-4 mt-4 text-sm">
-                <span className="text-text-secondary">
-                  {battle.agent1.name}:{" "}
-                  <span
-                    className={
-                      (battle.eloChange1 ?? 0) >= 0
-                        ? "text-green-400"
-                        : "text-accent-pink"
-                    }
-                  >
-                    {(battle.eloChange1 ?? 0) >= 0 ? "+" : ""}
-                    {battle.eloChange1} ELO
-                  </span>
-                </span>
-                <span className="text-text-secondary">
-                  {battle.agent2.name}:{" "}
+
+            <div className="min-h-[120px]">
+              {!battle.agent2Response &&
+                (phase === "thinking" || phase === "prompt") && (
+                  <div className="flex items-center gap-2 text-text-muted text-sm py-8 justify-center">
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-accent-purple"
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-accent-purple"
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: 0.2 }}
+                    />
+                    <motion.div
+                      className="w-2 h-2 rounded-full bg-accent-purple"
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.3, 1, 0.3] }}
+                      transition={{ duration: 1, repeat: Infinity, delay: 0.4 }}
+                    />
+                    <span className="ml-2">Thinking...</span>
+                  </div>
+                )}
+              {battle.agent2Response && phase !== "prompt" && (
+                <p className="text-sm text-text-secondary leading-relaxed whitespace-pre-wrap">
+                  <Typewriter
+                    text={battle.agent2Response}
+                    speed={20}
+                    delay={1000}
+                    onComplete={() => setAgent2Done(true)}
+                  />
+                </p>
+              )}
+            </div>
+
+            <AnimatePresence>
+              {phase === "complete" && battle.eloChange2 !== null && (
+                <motion.div
+                  className="mt-4 pt-3 border-t border-border text-sm text-center"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.7 }}
+                >
                   <span
                     className={
                       (battle.eloChange2 ?? 0) >= 0
-                        ? "text-green-400"
+                        ? "text-green-400 font-semibold"
                         : "text-accent-pink"
                     }
                   >
-                    {(battle.eloChange2 ?? 0) >= 0 ? "+" : ""}
-                    {battle.eloChange2} ELO
+                    {(battle.eloChange2 ?? 0) >= 0 ? "▲" : "▼"}{" "}
+                    {Math.abs(battle.eloChange2 ?? 0)} ELO
                   </span>
-                </span>
-              </div>
-            )}
-          </Card>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </motion.div>
-      )}
+      </div>
+
+      {/* Judging Overlay */}
+      <AnimatePresence>
+        {phase === "judging" && (
+          <motion.div
+            className="text-center py-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="text-5xl mb-4"
+              animate={{ rotate: [0, -10, 10, -10, 0] }}
+              transition={{ duration: 2, repeat: Infinity }}
+            >
+              ⚖️
+            </motion.div>
+            <p className="text-lg text-text-secondary">
+              The Grand Arbiter is deliberating...
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Judge Verdict */}
+      <AnimatePresence>
+        {(phase === "verdict" || phase === "complete") && battle.judgement && (
+          <motion.div
+            initial={{ opacity: 0, y: 30, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            transition={{ type: "spring", stiffness: 150 }}
+          >
+            <Card glow="purple" className="text-center">
+              <div className="text-xs text-accent-purple uppercase tracking-wider mb-3 font-semibold">
+                ⚖️ Judge&apos;s Verdict
+              </div>
+              <p className="text-text-primary text-lg leading-relaxed mb-4">
+                {battle.judgement}
+              </p>
+
+              {/* Winner Declaration */}
+              {battle.winnerId && phase === "complete" && (
+                <motion.div
+                  className="text-2xl font-bold text-gradient-gold mt-4"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [0, 1.2, 1] }}
+                  transition={{ delay: 0.3 }}
+                >
+                  🏆{" "}
+                  {battle.winnerId === battle.agent1.id
+                    ? battle.agent1.name
+                    : battle.agent2.name}{" "}
+                  Wins!
+                </motion.div>
+              )}
+              {!battle.winnerId && phase === "complete" && (
+                <motion.div
+                  className="text-xl font-bold text-text-secondary mt-4"
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                >
+                  🤝 Draw!
+                </motion.div>
+              )}
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Actions */}
+      <AnimatePresence>
+        {phase === "complete" && (
+          <motion.div
+            className="flex justify-center gap-4 mt-8"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.8 }}
+          >
+            <a
+              href={`https://explorer.solana.com/tx/?cluster=devnet`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-2 text-sm rounded-xl bg-bg-tertiary border border-border text-text-secondary hover:text-accent-cyan hover:border-accent-cyan transition-all"
+            >
+              ⛓️ View on Solana
+            </a>
+            <button
+              onClick={() => {
+                const text = `My agent just ${
+                  battle.winnerId ? "won" : "drew"
+                } a ${battle.category} battle on Agent Arena! ⚔️🏟️`;
+                window.open(
+                  `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}`,
+                  "_blank"
+                );
+              }}
+              className="px-4 py-2 text-sm rounded-xl bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan hover:bg-accent-cyan/20 transition-all"
+            >
+              📤 Share on X
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
