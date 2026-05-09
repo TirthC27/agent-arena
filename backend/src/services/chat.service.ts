@@ -3,6 +3,7 @@ import { callLLM } from "./ai/openrouter.service";
 import { getRelevantMemories } from "./ai/memory.service";
 import { inferPersonality } from "./ai/personality.service";
 import { buildAgentChatSystem } from "./ai/prompts/chat.prompts";
+import { getEvolutionTier, getEvolutionInfo } from "./ai/evolution.service";
 import { ApiError } from "../utils/ApiError";
 
 /**
@@ -42,10 +43,12 @@ export async function sendMessage(
     strategic: agent.traitStrategic,
   };
 
-  // 3. Build system prompt with personality
+  // 3. Build evolution-aware system prompt
   const systemPrompt = buildAgentChatSystem(agent, traits, memories);
+  const xp = agent.totalWins * 100 + agent.totalLosses * 25 + agent.totalDraws * 50;
+  const tier = getEvolutionTier(xp);
 
-  // 4. Call LLM
+  // 4. Call LLM with tier-appropriate temperature
   const reply = await callLLM({
     messages: [
       { role: "system", content: systemPrompt },
@@ -54,7 +57,7 @@ export async function sendMessage(
         content: m.content,
       })),
     ],
-    temperature: 0.8,
+    temperature: tier.temperature,
   });
 
   // 5. Save agent reply
@@ -82,7 +85,7 @@ export async function sendMessage(
     personalityUpdate = "Personality analysis triggered";
   }
 
-  return { reply, personalityUpdate };
+  return { reply, personalityUpdate, evolution: getEvolutionInfo(agent) };
 }
 
 /**

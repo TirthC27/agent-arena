@@ -1,6 +1,7 @@
 import { prisma } from "../config/db";
 import { CreateAgentInput, UpdateAgentInput } from "../types";
 import { ApiError } from "../utils/ApiError";
+import { getEvolutionInfo } from "./ai/evolution.service";
 
 const MAX_AGENTS_PER_USER = 3;
 
@@ -45,17 +46,18 @@ export async function getAgentById(agentId: string) {
   });
 
   if (!agent) throw ApiError.notFound("Agent not found");
-  return agent;
+  return { ...agent, evolution: getEvolutionInfo(agent) };
 }
 
 /**
  * Get all agents for a user
  */
 export async function getUserAgents(userId: string) {
-  return prisma.agent.findMany({
+  const agents = await prisma.agent.findMany({
     where: { userId },
     orderBy: { createdAt: "desc" },
   });
+  return agents.map((a) => ({ ...a, evolution: getEvolutionInfo(a) }));
 }
 
 /**

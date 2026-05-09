@@ -30,6 +30,7 @@ export interface JudgementResult {
   score2: number;
   winner: "agent1" | "agent2" | "draw";
   reasoning: string;
+  highlight?: string;
 }
 
 export interface QueueEntry {
