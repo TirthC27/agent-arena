@@ -1,0 +1,158 @@
+// This is your Prisma schema file for Agent Arena
+// Connected to Supabase PostgreSQL
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  walletAddress String    @unique
+  username      String?   @unique
+  avatarUrl     String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  agents        Agent[]
+  sessions      Session[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
+  @@index([userId])
+}
+
+model Agent {
+  id          String   @id @default(cuid())
+  userId      String
+  name        String
+  avatarUrl   String?
+  bio         String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Personality traits (0-100 scale, null = not yet inferred)
+  traitAnalytical Int?
+  traitCreative   Int?
+  traitAggressive Int?
+  traitCautious   Int?
+  traitSocial     Int?
+  traitStrategic  Int?
+
+  // ELO ratings per category
+  eloKnowledge    Int @default(1000)
+  eloStrategy     Int @default(1000)
+  eloProductivity Int @default(1000)
+  eloPrediction   Int @default(1000)
+  eloSocial       Int @default(1000)
+  eloOverall      Int @default(1000)
+
+  // Stats
+  totalWins     Int @default(0)
+  totalLosses   Int @default(0)
+  totalDraws    Int @default(0)
+  winStreak     Int @default(0)
+  bestWinStreak Int @default(0)
+
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  memories        AgentMemory[]
+  chatMessages    ChatMessage[]
+  battlesAsAgent1 Battle[]      @relation("BattleAgent1")
+  battlesAsAgent2 Battle[]      @relation("BattleAgent2")
+  battlesWon      Battle[]      @relation("BattleWinner")
+
+  @@index([userId])
+  @@index([eloOverall(sort: Desc)])
+}
+
+model AgentMemory {
+  id        String   @id @default(cuid())
+  agentId   String
+  type      String   // "chat_summary" | "battle_lesson" | "personality_update"
+  content   String
+  weight    Float    @default(1.0)
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, type])
+  @@index([agentId, createdAt(sort: Desc)])
+}
+
+model ChatMessage {
+  id        String   @id @default(cuid())
+  agentId   String
+  role      String   // "user" | "agent"
+  content   String
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, createdAt])
+}
+
+model Battle {
+  id       String @id @default(cuid())
+  category String // "knowledge" | "strategy" | "productivity" | "prediction" | "social"
+  status   String @default("pending") // "pending" | "in_progress" | "completed" | "cancelled"
+
+  agent1Id String
+  agent2Id String
+  winnerId String?
+
+  // Battle content
+  prompt         String?
+  agent1Response String?
+  agent2Response String?
+  judgement       String?
+  score1         Int?
+  score2         Int?
+
+  // ELO changes
+  eloChange1 Int?
+  eloChange2 Int?
+
+  rounds      BattleRound[]
+  createdAt   DateTime      @default(now())
+  completedAt DateTime?
+
+  agent1 Agent  @relation("BattleAgent1", fields: [agent1Id], references: [id])
+  agent2 Agent  @relation("BattleAgent2", fields: [agent2Id], references: [id])
+  winner Agent? @relation("BattleWinner", fields: [winnerId], references: [id])
+
+  @@index([status])
+  @@index([category])
+  @@index([createdAt(sort: Desc)])
+}
+
+model BattleRound {
+  id             String  @id @default(cuid())
+  battleId       String
+  roundNumber    Int
+  prompt         String
+  agent1Response String?
+  agent2Response String?
+  roundWinnerId  String?
+  judgement       String?
+  score1         Int?
+  score2         Int?
+
+  battle Battle @relation(fields: [battleId], references: [id], onDelete: Cascade)
+
+  @@unique([battleId, roundNumber])
+}
