@@ -6,17 +6,17 @@ import { LLMCallOptions } from "../../types";
 // Ordered by preference — falls back down the list on failure
 const MODEL_TIERS = {
   premium: [
-    "anthropic/claude-sonnet-4",
+    "openai/gpt-5.2-chat",
     "openai/gpt-4o",
     "google/gemini-2.5-flash",
   ],
   fast: [
     "google/gemini-2.5-flash",
     "openai/gpt-4o-mini",
-    "anthropic/claude-sonnet-4",
+    "openai/gpt-5.2-chat",
   ],
   judge: [
-    "anthropic/claude-sonnet-4", // Best for impartial judging
+    "openai/gpt-5.2-chat", // Best for impartial judging
     "openai/gpt-4o",
   ],
 };

@@ -18,8 +18,8 @@ export const env = {
   // OpenRouter
   OPENROUTER_API_KEY: requireEnv("OPENROUTER_API_KEY"),
   OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
-  OPENROUTER_DEFAULT_MODEL: process.env.OPENROUTER_DEFAULT_MODEL || "anthropic/claude-sonnet-4",
-  OPENROUTER_BATTLE_MODEL: process.env.OPENROUTER_BATTLE_MODEL || "anthropic/claude-sonnet-4",
+  OPENROUTER_DEFAULT_MODEL: process.env.OPENROUTER_DEFAULT_MODEL || "openai/gpt-5.2-chat",
+  OPENROUTER_BATTLE_MODEL: process.env.OPENROUTER_BATTLE_MODEL || "openai/gpt-5.2-chat",
 
   // Auth
   JWT_SECRET: requireEnv("JWT_SECRET"),

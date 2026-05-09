@@ -1,26 +1,170 @@
 @import "tailwindcss";
 
+/* ========== Agent Arena Theme System ========== */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Backgrounds */
+  --bg-primary: #0a0b0f;
+  --bg-secondary: #12141c;
+  --bg-tertiary: #1a1d2a;
+  --bg-card: #14161f;
+
+  /* Borders */
+  --border: #2a2d3a;
+  --border-hover: #3a3d4a;
+
+  /* Text */
+  --text-primary: #e8eaed;
+  --text-secondary: #8b8d97;
+  --text-muted: #5a5c66;
+
+  /* Accents */
+  --accent-cyan: #00f5d4;
+  --accent-purple: #7b61ff;
+  --accent-pink: #ff6b9d;
+  --accent-gold: #ffd700;
+  --accent-blue: #4da6ff;
+
+  /* Glows */
+  --glow-cyan: 0 0 20px rgba(0, 245, 212, 0.2);
+  --glow-purple: 0 0 20px rgba(123, 97, 255, 0.2);
+  --glow-gold: 0 0 20px rgba(255, 215, 0, 0.2);
+
+  /* Fonts */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-primary);
+  --color-foreground: var(--text-primary);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Custom colors for Tailwind */
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-secondary: var(--bg-secondary);
+  --color-bg-tertiary: var(--bg-tertiary);
+  --color-bg-card: var(--bg-card);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-purple: var(--accent-purple);
+  --color-accent-pink: var(--accent-pink);
+  --color-accent-gold: var(--accent-gold);
+  --color-accent-blue: var(--accent-blue);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-}
-
+/* ========== Base Styles ========== */
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+}
+
+/* ========== Scrollbar ========== */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-hover);
+}
+
+/* ========== Glow Effects ========== */
+.glow-cyan {
+  box-shadow: var(--glow-cyan);
+}
+.glow-purple {
+  box-shadow: var(--glow-purple);
+}
+.glow-gold {
+  box-shadow: var(--glow-gold);
+}
+
+/* ========== Animations ========== */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.animate-shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--bg-tertiary) 25%,
+    var(--border) 50%,
+    var(--bg-tertiary) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
+
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* ========== Gradient Text ========== */
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent-cyan), var(--accent-purple));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.text-gradient-gold {
+  background: linear-gradient(135deg, var(--accent-gold), #ff9500);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ========== Card Hover ========== */
+.card-hover {
+  transition: all 0.2s ease;
+  border: 1px solid var(--border);
+}
+.card-hover:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: var(--glow-cyan);
+  transform: translateY(-2px);
+}
+
+/* ========== Wallet Adapter Override ========== */
+.wallet-adapter-button {
+  background: var(--bg-tertiary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 12px !important;
+  font-family: var(--font-sans) !important;
+  transition: all 0.2s ease !important;
+}
+.wallet-adapter-button:hover {
+  background: var(--bg-secondary) !important;
+  border-color: var(--accent-cyan) !important;
+}
+.wallet-adapter-modal-wrapper {
+  background: var(--bg-secondary) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 16px !important;
 }
