@@ -28,61 +28,91 @@ export default function BattlePage({ params }: { params: Promise<{ id: string }>
   const [agent1Done, setAgent1Done] = useState(false);
   const [agent2Done, setAgent2Done] = useState(false);
 
-  // Load and poll battle
+  // Load battle and subscribe to SSE updates, falling back to polling
   useEffect(() => {
-    loadBattle();
-    const interval = setInterval(async () => {
+    let interval: ReturnType<typeof setInterval> | null = null;
+    let unsubscribe: (() => void) | null = null;
+
+    async function init() {
       try {
         const data = await api.getBattle(id);
         setBattle(data);
-        if (data.status === "completed" || data.status === "cancelled") {
-          clearInterval(interval);
+        derivePhase(data);
+
+        // If not yet finished, subscribe to live updates
+        if (data.status !== "completed" && data.status !== "cancelled") {
+          try {
+            unsubscribe = api.subscribeToBattle(id, (update) => {
+              setBattle((prev) => {
+                if (!prev) return prev;
+                const merged = { ...prev, ...update } as Battle;
+                derivePhase(merged);
+                return merged;
+              });
+            });
+          } catch {
+            // SSE failed — fall back to polling
+            interval = setInterval(async () => {
+              try {
+                const data = await api.getBattle(id);
+                setBattle(data);
+                derivePhase(data);
+                if (data.status === "completed" || data.status === "cancelled") {
+                  if (interval) clearInterval(interval);
+                }
+              } catch { /* ignore */ }
+            }, 2000);
+          }
         }
-      } catch { /* ignore */ }
-    }, 2000);
-    return () => clearInterval(interval);
+      } catch (err) {
+        console.error("Failed to load battle:", err);
+      }
+    }
+
+    init();
+    return () => {
+      if (interval) clearInterval(interval);
+      if (unsubscribe) unsubscribe();
+    };
   }, [id]);
 
-  async function loadBattle() {
-    try {
-      const data = await api.getBattle(id);
-      setBattle(data);
-
-      // If already completed, show dramatic reveal sequence
-      if (data.status === "completed") {
-        runCompletedSequence();
-      } else {
-        setPhase("prompt");
-      }
-    } catch (err) {
-      console.error("Failed to load battle:", err);
-    }
-  }
-
-  // Dramatic reveal sequence for completed battles
-  function runCompletedSequence() {
-    setPhase("prompt");
-    setTimeout(() => setPhase("responding"), 1000);
-    setTimeout(() => setPhase("judging"), 3000);
-    setTimeout(() => {
-      setPhase("verdict");
-    }, 4500);
-    setTimeout(() => {
+  // Derive UI phase from actual battle data — not timers
+  function derivePhase(b: Battle) {
+    if (b.status === "cancelled") {
       setPhase("complete");
-      setShowConfetti(true);
-    }, 6000);
+      return;
+    }
+    if (b.status === "completed" && b.judgement) {
+      // Completed battle — run a brief dramatic reveal driven by data presence
+      if (phase === "loading" || phase === "prompt") {
+        setPhase("responding");
+        setTimeout(() => setPhase("judging"), 1500);
+        setTimeout(() => setPhase("verdict"), 3000);
+        setTimeout(() => {
+          setPhase("complete");
+          setShowConfetti(true);
+        }, 4500);
+      }
+      return;
+    }
+    if (b.agent1Response && b.agent2Response && !b.judgement) {
+      setPhase("judging");
+      return;
+    }
+    if (b.agent1Response || b.agent2Response) {
+      setPhase("responding");
+      return;
+    }
+    if (b.status === "in_progress") {
+      setPhase("thinking");
+      return;
+    }
+    setPhase("prompt");
   }
 
-  // Watch for battle completion during live polling
+  // Both typewriters done → if battle is completed, advance to judging
   useEffect(() => {
-    if (battle?.status === "completed" && phase === "prompt") {
-      runCompletedSequence();
-    }
-  }, [battle?.status]);
-
-  // Both typewriters done → move to judging
-  useEffect(() => {
-    if (agent1Done && agent2Done && phase === "responding") {
+    if (agent1Done && agent2Done && phase === "responding" && battle?.judgement) {
       setTimeout(() => setPhase("judging"), 800);
       setTimeout(() => setPhase("verdict"), 2500);
       setTimeout(() => {
@@ -90,7 +120,7 @@ export default function BattlePage({ params }: { params: Promise<{ id: string }>
         setShowConfetti(true);
       }, 4000);
     }
-  }, [agent1Done, agent2Done, phase]);
+  }, [agent1Done, agent2Done, phase, battle?.judgement]);
 
   if (!battle) {
     return (
@@ -473,12 +503,16 @@ export default function BattlePage({ params }: { params: Promise<{ id: string }>
             transition={{ delay: 0.8 }}
           >
             <a
-              href={`https://explorer.solana.com/tx/?cluster=devnet`}
+              href={
+                battle.txSignature
+                  ? `https://explorer.solana.com/tx/${battle.txSignature}?cluster=devnet`
+                  : `https://explorer.solana.com/address/${battle.id}?cluster=devnet`
+              }
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-2 text-sm rounded-xl bg-bg-tertiary border border-border text-text-secondary hover:text-accent-cyan hover:border-accent-cyan transition-all"
             >
-              ⛓️ View on Solana
+              ⛓️ {battle.txSignature ? "View Tx on Solana" : "View on Solana"}
             </a>
             <button
               onClick={() => {

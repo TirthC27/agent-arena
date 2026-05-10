@@ -7,6 +7,7 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
+  // Known API errors
   if (err instanceof ApiError) {
     console.error(`[API_ERROR] ${req.method} ${req.path}: ${err.message}`);
     return res.status(err.statusCode).json({
@@ -29,6 +30,36 @@ export const errorHandler = (
     return res.status(404).json({
       success: false,
       error: "Record not found",
+    });
+  }
+
+  // Solana/Anchor errors
+  if (err.message?.includes("AnchorError") || err.message?.includes("Program log")) {
+    console.error(`[SOLANA_ERROR] ${req.method} ${req.path}:`, err.message);
+    if ((err as any).logs) {
+      console.error(`[SOLANA_ERROR] Program logs:`, (err as any).logs);
+    }
+    return res.status(502).json({
+      success: false,
+      error: "Blockchain transaction failed. Please try again.",
+    });
+  }
+
+  // OpenRouter / AI upstream errors
+  if (err.message?.includes("All AI models failed") || err.message?.includes("Empty LLM response")) {
+    console.error(`[AI_ERROR] ${req.method} ${req.path}:`, err.message);
+    return res.status(503).json({
+      success: false,
+      error: "AI service temporarily unavailable. Please try again later.",
+    });
+  }
+
+  // AbortError (timeout)
+  if (err.name === "AbortError") {
+    console.error(`[TIMEOUT_ERROR] ${req.method} ${req.path}: Request timed out`);
+    return res.status(504).json({
+      success: false,
+      error: "Request timed out. Please try again.",
     });
   }
 

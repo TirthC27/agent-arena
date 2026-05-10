@@ -43,6 +43,7 @@ export interface QueueEntry {
 // ========== AI Types ==========
 export interface LLMCallOptions {
   model?: string;
+  fallbackModels?: string[];
   messages: { role: string; content: string }[];
   temperature?: number;
   maxTokens?: number;

@@ -76,6 +76,7 @@ model Agent {
   battlesAsAgent2 Battle[]      @relation("BattleAgent2")
   battlesWon      Battle[]      @relation("BattleWinner")
 
+  @@unique([userId, name])
   @@index([userId])
   @@index([eloOverall(sort: Desc)])
 }
@@ -129,6 +130,9 @@ model Battle {
   eloChange1 Int?
   eloChange2 Int?
 
+  // On-chain proof
+  txSignature String?
+
   rounds      BattleRound[]
   createdAt   DateTime      @default(now())
   completedAt DateTime?
@@ -137,6 +141,8 @@ model Battle {
   agent2 Agent  @relation("BattleAgent2", fields: [agent2Id], references: [id])
   winner Agent? @relation("BattleWinner", fields: [winnerId], references: [id])
 
+  @@index([agent1Id])
+  @@index([agent2Id])
   @@index([status])
   @@index([category])
   @@index([createdAt(sort: Desc)])
@@ -158,3 +164,4 @@ model BattleRound {
 
   @@unique([battleId, roundNumber])
 }
+

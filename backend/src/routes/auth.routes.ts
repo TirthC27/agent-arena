@@ -14,4 +14,7 @@ router.post("/verify", authLimiter, authController.verify);
 import { auth } from "../middleware/auth";
 router.get("/me", auth, authController.getMe);
 
+// POST /api/auth/logout — Invalidate session
+router.post("/logout", auth, authController.logout);
+
 export default router;

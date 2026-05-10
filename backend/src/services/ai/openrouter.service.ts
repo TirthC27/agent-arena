@@ -65,7 +65,7 @@ export async function callLLM(options: LLMCallOptions): Promise<string> {
 
   // Determine model list for fallback
   const models = options.model
-    ? [options.model]
+    ? [options.model, ...(options.fallbackModels || [])]
     : MODEL_TIERS.premium;
 
   let lastError: Error | null = null;
@@ -73,6 +73,10 @@ export async function callLLM(options: LLMCallOptions): Promise<string> {
   for (const model of models) {
     for (let attempt = 1; attempt <= 3; attempt++) {
       try {
+        // Add timeout with AbortController (30 seconds)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
+
         const response = await openrouter.chat.completions.create({
           model,
           messages: options.messages as any,
@@ -81,7 +85,9 @@ export async function callLLM(options: LLMCallOptions): Promise<string> {
           response_format: options.jsonMode
             ? { type: "json_object" }
             : undefined,
-        });
+        }, { signal: controller.signal as any });
+
+        clearTimeout(timeoutId);
 
         const content = response.choices[0]?.message?.content;
         if (!content) throw new Error("Empty LLM response");
@@ -141,7 +147,8 @@ export async function callLLMWithTier(
   options: Omit<LLMCallOptions, "model">
 ): Promise<string> {
   const models = MODEL_TIERS[tier];
-  return callLLM({ ...options, model: models[0] });
+  // Pass all models in the tier for fallback, not just the first one
+  return callLLM({ ...options, model: models[0], fallbackModels: models.slice(1) });
 }
 
 /**
@@ -183,7 +190,12 @@ export async function callLLMJson<T>(
     });
 
     try {
-      return JSON.parse(retryRaw.trim()) as T;
+      // Re-strip markdown fences on retry response too
+      let retryStr = retryRaw.trim();
+      const retryMatch = retryStr.match(/```json?\s*([\s\S]*?)```/);
+      if (retryMatch) retryStr = retryMatch[1].trim();
+
+      return JSON.parse(retryStr) as T;
     } catch {
       throw new Error(
         `Failed to parse LLM JSON after retry: ${retryRaw.substring(0, 200)}`

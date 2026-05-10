@@ -2,13 +2,13 @@ import { Request, Response } from "express";
 import { asyncHandler } from "../utils/asyncHandler";
 import * as agentService from "../services/agent.service";
 import { ApiError } from "../utils/ApiError";
+import { schemas } from "../utils/validate";
 
 export const createAgent = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw ApiError.unauthorized();
-  const { name, bio, avatarUrl } = req.body;
-  if (!name) throw ApiError.badRequest("name is required");
+  const data = schemas.createAgent.parse(req.body);
 
-  const agent = await agentService.createAgent(req.user.id, { name, bio, avatarUrl });
+  const agent = await agentService.createAgent(req.user.id, data);
   res.status(201).json({ success: true, data: agent });
 });
 
@@ -25,9 +25,7 @@ export const getMyAgents = asyncHandler(async (req: Request, res: Response) => {
 
 export const updateAgent = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw ApiError.unauthorized();
-  const { name, bio, avatarUrl, isActive } = req.body;
-  const agent = await agentService.updateAgent(req.params.id as string, req.user.id, {
-    name, bio, avatarUrl, isActive,
-  });
+  const data = schemas.updateAgent.parse(req.body);
+  const agent = await agentService.updateAgent(req.params.id as string, req.user.id, data);
   res.json({ success: true, data: agent });
 });

@@ -13,7 +13,12 @@
     "db:generate": "npx prisma generate",
     "db:seed": "ts-node prisma/seed.ts"
   },
-  "keywords": ["ai", "agents", "arena", "solana"],
+  "keywords": [
+    "ai",
+    "agents",
+    "arena",
+    "solana"
+  ],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
@@ -30,7 +35,8 @@
     "openai": "^6.37.0",
     "pino": "^9.7.0",
     "tweetnacl": "^1.0.3",
-    "uuid": "^11.1.0"
+    "uuid": "^11.1.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
