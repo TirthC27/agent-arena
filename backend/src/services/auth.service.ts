@@ -13,7 +13,7 @@ const nonceStore = new Map<string, { message: string; createdAt: Date }>();
  */
 export async function generateChallenge(walletAddress: string) {
   const nonce = uuidv4();
-  const message = generateAuthMessage(nonce);
+  const message = generateAuthMessage(nonce, walletAddress);
 
   // Store nonce with 5-minute expiry
   nonceStore.set(walletAddress, { message, createdAt: new Date() });
@@ -86,6 +86,13 @@ export async function verifyAndLogin(
 }
 
 /**
+ * Logout — invalidate session in DB
+ */
+export async function logout(token: string) {
+  await prisma.session.deleteMany({ where: { token } });
+}
+
+/**
  * Get current user from token
  */
 export async function getCurrentUser(userId: string) {
@@ -101,5 +108,14 @@ export async function getCurrentUser(userId: string) {
         },
       },
     },
+  });
+}
+
+/**
+ * Clean up expired sessions (call periodically or on login)
+ */
+export async function cleanupExpiredSessions() {
+  await prisma.session.deleteMany({
+    where: { expiresAt: { lt: new Date() } },
   });
 }

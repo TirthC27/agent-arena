@@ -3,19 +3,11 @@ import { asyncHandler } from "../utils/asyncHandler";
 import * as battleService from "../services/battle.service";
 import { prisma } from "../config/db";
 import { ApiError } from "../utils/ApiError";
-import { BattleCategory } from "../types";
-
-const VALID_CATEGORIES: BattleCategory[] = [
-  "knowledge", "strategy", "productivity", "prediction", "social",
-];
+import { schemas } from "../utils/validate";
 
 export const joinQueue = asyncHandler(async (req: Request, res: Response) => {
   if (!req.user) throw ApiError.unauthorized();
-  const { agentId, category } = req.body;
-  if (!agentId || !category) throw ApiError.badRequest("agentId and category required");
-  if (!VALID_CATEGORIES.includes(category)) {
-    throw ApiError.badRequest(`Invalid category. Must be one of: ${VALID_CATEGORIES.join(", ")}`);
-  }
+  const { agentId, category } = schemas.joinQueue.parse(req.body);
 
   const result = await battleService.joinQueue(agentId, category, req.user.id);
   res.json({ success: true, data: result });
@@ -55,6 +47,7 @@ export const liveBattle = asyncHandler(async (req: Request, res: Response) => {
           agent1Response: true,
           agent2Response: true,
           judgement: true,
+          txSignature: true,
         },
       });
 

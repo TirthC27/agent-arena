@@ -173,31 +173,46 @@ export async function executeBattle(battleId: string) {
     ]);
 
     // 8. Record battle on-chain (fire-and-forget, graceful degradation)
-    recordBattleOnChain({
-      agent1Wallet: battle.agent1.userId, // Will be wallet address in production
-      agent1Name: battle.agent1.name,
-      agent2Wallet: battle.agent2.userId,
-      agent2Name: battle.agent2.name,
-      result: judgement.winner,
-      category: battle.category,
-      score1: judgement.score1,
-      score2: judgement.score2,
-      battleData: {
-        prompt,
-        agent1Response: resp1,
-        agent2Response: resp2,
-        judgement: judgement.reasoning,
-      },
-    })
-      .then((result) => {
-        if (result) {
-          console.log(`[SOLANA] Battle recorded on-chain: ${result.battlePDA}`);
-          console.log(`[SOLANA] Explorer: ${getExplorerUrl(result.battlePDA)}`);
-        }
+    // Fetch actual wallet addresses for PDA derivation (userId is a cuid, not a wallet address)
+    const [user1, user2] = await Promise.all([
+      prisma.user.findUnique({ where: { id: battle.agent1.userId }, select: { walletAddress: true } }),
+      prisma.user.findUnique({ where: { id: battle.agent2.userId }, select: { walletAddress: true } }),
+    ]);
+
+    if (user1?.walletAddress && user2?.walletAddress) {
+      recordBattleOnChain({
+        agent1Wallet: user1.walletAddress,
+        agent1Name: battle.agent1.name,
+        agent2Wallet: user2.walletAddress,
+        agent2Name: battle.agent2.name,
+        result: judgement.winner,
+        category: battle.category,
+        score1: judgement.score1,
+        score2: judgement.score2,
+        battleData: {
+          prompt,
+          agent1Response: resp1,
+          agent2Response: resp2,
+          judgement: judgement.reasoning,
+        },
       })
-      .catch((err) => {
-        console.error(`[SOLANA] On-chain recording failed (non-fatal):`, err.message);
-      });
+        .then(async (result) => {
+          if (result) {
+            console.log(`[SOLANA] Battle recorded on-chain: ${result.battlePDA}`);
+            console.log(`[SOLANA] Explorer: ${getExplorerUrl(result.txSignature, "tx")}`);
+            // Store tx signature in the battle record for the frontend
+            await prisma.battle.update({
+              where: { id: battleId },
+              data: { txSignature: result.txSignature },
+            }).catch(() => { /* non-fatal */ });
+          }
+        })
+        .catch((err) => {
+          console.error(`[SOLANA] On-chain recording failed (non-fatal):`, err.message);
+        });
+    } else {
+      console.warn(`[SOLANA] Missing wallet addresses for agents — skipping on-chain recording`);
+    }
 
     console.log(
       `[BATTLE] Completed ${battleId}: ${battle.agent1.name} vs ${battle.agent2.name} → ${judgement.winner}`

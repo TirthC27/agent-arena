@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
@@ -20,11 +20,11 @@ export default function ArenaPage() {
   const [inQueue, setInQueue] = useState(false);
 
   // Load agents on mount
-  useState(() => {
+  useEffect(() => {
     if (isAuthenticated) {
       api.getMyAgents().then(setAgents).catch(console.error);
     }
-  });
+  }, [isAuthenticated]);
 
   async function handleJoinQueue() {
     if (!selectedAgent || !selectedCategory) return;

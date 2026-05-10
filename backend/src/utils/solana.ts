@@ -23,8 +23,21 @@ export function verifyWalletSignature(
 }
 
 /**
- * Generate a nonce message for wallet signing
+ * Generate a SIWS-style nonce message for wallet signing.
+ * Includes domain + chain + wallet for replay protection.
  */
-export function generateAuthMessage(nonce: string): string {
-  return `Sign this message to authenticate with Agent Arena.\n\nNonce: ${nonce}\nTimestamp: ${new Date().toISOString()}`;
+export function generateAuthMessage(nonce: string, walletAddress?: string): string {
+  const domain = "agent-arena.xyz";
+  return [
+    `${domain} wants you to sign in with your Solana account:`,
+    walletAddress || "",
+    "",
+    "Sign this message to authenticate with Agent Arena.",
+    "",
+    `URI: https://${domain}`,
+    `Version: 1`,
+    `Chain ID: solana:devnet`,
+    `Nonce: ${nonce}`,
+    `Issued At: ${new Date().toISOString()}`,
+  ].join("\n");
 }

@@ -64,6 +64,7 @@ export interface Battle {
   score2: number | null;
   eloChange1: number | null;
   eloChange2: number | null;
+  txSignature: string | null;
   completedAt: string | null;
   agent1: AgentSummary;
   agent2: AgentSummary;

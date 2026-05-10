@@ -45,6 +45,15 @@ class ApiClient {
       },
     });
 
+    // Guard against non-JSON responses (e.g. HTML error pages, proxy errors)
+    const contentType = res.headers.get("Content-Type") || "";
+    if (!contentType.includes("application/json")) {
+      const text = await res.text();
+      throw new Error(
+        `API error: ${res.status} — expected JSON but got ${contentType || "unknown"}. Body: ${text.substring(0, 200)}`
+      );
+    }
+
     const data: ApiResponse<T> = await res.json();
 
     if (!res.ok || !data.success) {
@@ -72,6 +81,16 @@ class ApiClient {
 
   async getMe() {
     return this.request<User>("/api/auth/me");
+  }
+
+  async logout() {
+    try {
+      await this.request<void>("/api/auth/logout", { method: "POST" });
+    } catch {
+      // Ignore — server-side session cleanup is best-effort
+    } finally {
+      this.setToken(null);
+    }
   }
 
   // ========== Agents ==========
