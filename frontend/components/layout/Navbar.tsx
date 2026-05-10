@@ -1,11 +1,25 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useWallet } from "@solana/wallet-adapter-react";
-import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
-import { useAuth } from "@/context/AuthContext";
-import { truncateAddress } from "@/lib/utils";
+
+const WalletAuthControls = dynamic(() => import("./WalletAuthControls"), {
+  ssr: false,
+  loading: () => <WalletButtonPlaceholder />,
+});
+
+function WalletButtonPlaceholder() {
+  return (
+    <button
+      type="button"
+      disabled
+      className="wallet-adapter-button wallet-adapter-button-trigger"
+    >
+      Select Wallet
+    </button>
+  );
+}
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
@@ -15,8 +29,6 @@ const NAV_LINKS = [
 
 export default function Navbar() {
   const pathname = usePathname();
-  const { connected } = useWallet();
-  const { user, isAuthenticated, login, logout, isLoading } = useAuth();
 
   return (
     <nav className="sticky top-0 z-50 border-b border-border bg-bg-primary/80 backdrop-blur-xl">
@@ -50,29 +62,7 @@ export default function Navbar() {
 
           {/* Wallet + Auth */}
           <div className="flex items-center gap-3">
-            {isAuthenticated && user ? (
-              <div className="flex items-center gap-3">
-                <span className="hidden sm:block text-sm text-text-secondary">
-                  {truncateAddress(user.walletAddress)}
-                </span>
-                <button
-                  onClick={logout}
-                  className="px-3 py-1.5 text-xs rounded-lg bg-bg-tertiary border border-border text-text-secondary hover:text-accent-pink hover:border-accent-pink transition-all"
-                >
-                  Logout
-                </button>
-              </div>
-            ) : connected && !isAuthenticated ? (
-              <button
-                onClick={login}
-                disabled={isLoading}
-                className="px-4 py-2 text-sm font-medium rounded-lg bg-accent-cyan/10 border border-accent-cyan/30 text-accent-cyan hover:bg-accent-cyan/20 transition-all disabled:opacity-50"
-              >
-                {isLoading ? "Signing..." : "Sign In"}
-              </button>
-            ) : (
-              <WalletMultiButton />
-            )}
+            <WalletAuthControls />
           </div>
         </div>
       </div>

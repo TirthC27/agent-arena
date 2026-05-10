@@ -7,7 +7,6 @@ export const errorHandler = (
   res: Response,
   _next: NextFunction
 ) => {
-  // Known API errors
   if (err instanceof ApiError) {
     console.error(`[API_ERROR] ${req.method} ${req.path}: ${err.message}`);
     return res.status(err.statusCode).json({
@@ -16,8 +15,24 @@ export const errorHandler = (
     });
   }
 
+  if (prismaError.code === "P1000") {
+    console.error(`[DB_ERROR] Invalid database credentials:`, err);
+    return res.status(503).json({
+      success: false,
+      error: "Database authentication failed. Check DATABASE_URL and DIRECT_URL credentials.",
+    });
+  }
+
+  if (prismaError.code === "P1001") {
+    console.error(`[DB_ERROR] Database unreachable:`, err);
+    return res.status(503).json({
+      success: false,
+      error: "Database is unreachable. Check the database host, port, and network access.",
+    });
+  }
+
   // Prisma known errors
-  if ((err as any).code === "P2002") {
+  if (prismaError.code === "P2002") {
     console.error(`[DB_ERROR] Unique constraint violation:`, err);
     return res.status(409).json({
       success: false,
@@ -25,7 +40,7 @@ export const errorHandler = (
     });
   }
 
-  if ((err as any).code === "P2025") {
+  if (prismaError.code === "P2025") {
     console.error(`[DB_ERROR] Record not found:`, err);
     return res.status(404).json({
       success: false,
