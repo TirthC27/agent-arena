@@ -23,6 +23,13 @@ export interface Agent {
   traitCautious: number | null;
   traitSocial: number | null;
   traitStrategic: number | null;
+  ytInitialized: boolean;
+  ytArchetypeName: string | null;
+  ytRiskAppetite: number | null;
+  ytLogicDominance: number | null;
+  ytCompetitiveness: number | null;
+  ytEmotionalStability: number | null;
+  ytAdaptability: number | null;
   createdAt: string;
   evolution: EvolutionInfo;
 }

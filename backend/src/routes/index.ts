@@ -4,6 +4,7 @@ import agentRoutes from "./agent.routes";
 import chatRoutes from "./chat.routes";
 import battleRoutes from "./battle.routes";
 import leaderboardRoutes from "./leaderboard.routes";
+import ytdnaRoutes from "./ytdna.routes";
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use("/agents", agentRoutes);
 router.use("/chat", chatRoutes);
 router.use("/battles", battleRoutes);
 router.use("/leaderboard", leaderboardRoutes);
+router.use("/ytdna", ytdnaRoutes);
 
 export default router;

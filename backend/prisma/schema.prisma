@@ -54,6 +54,21 @@ model Agent {
   traitSocial     Int?
   traitStrategic  Int?
 
+  // YT-DNA personality traits (0-100 scale, derived from YouTube watch history)
+  ytRiskAppetite     Int?
+  ytLogicDominance   Int?
+  ytCompetitiveness  Int?
+  ytEmotionalStability Int?
+  ytAdaptability     Int?
+
+  // YT-DNA Agent Identity
+  ytArchetypeName   String?
+  ytSystemPrompt    String?
+  ytSignaturePhrase String?
+  ytBattleStyle     String?
+  ytWeakDomain      String?
+  ytInitialized     Boolean  @default(false)
+
   // ELO ratings per category
   eloKnowledge    Int @default(1000)
   eloStrategy     Int @default(1000)
@@ -75,10 +90,30 @@ model Agent {
   battlesAsAgent1 Battle[]      @relation("BattleAgent1")
   battlesAsAgent2 Battle[]      @relation("BattleAgent2")
   battlesWon      Battle[]      @relation("BattleWinner")
+  ytDnaProfile    YtDnaProfile?
 
   @@unique([userId, name])
   @@index([userId])
   @@index([eloOverall(sort: Desc)])
+}
+
+model YtDnaProfile {
+  id        String   @id @default(cuid())
+  agentId   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Raw stats
+  likedCount        Int @default(0)
+  subscriptionCount Int @default(0)
+
+  // Domains JSON array
+  domains Json
+
+  // Full profile JSON (archetype + memory)
+  fullProfile Json
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
 }
 
 model AgentMemory {
