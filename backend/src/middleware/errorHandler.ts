@@ -15,6 +15,7 @@ export const errorHandler = (
     });
   }
 
+  const prismaError = err as any;
   if (prismaError.code === "P1000") {
     console.error(`[DB_ERROR] Invalid database credentials:`, err);
     return res.status(503).json({

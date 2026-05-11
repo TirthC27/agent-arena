@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, use } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 import { Agent, ChatMessage, EvolutionInfo } from "@/types";
 import Card from "@/components/ui/Card";
@@ -14,13 +16,17 @@ import { formatElo, winRate } from "@/lib/utils";
 
 export default function AgentProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
+  const { user } = useAuth();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [connectingYt, setConnectingYt] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [evolution, setEvolution] = useState<EvolutionInfo | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   useEffect(() => {
     loadAgent();
@@ -48,6 +54,29 @@ export default function AgentProfilePage({ params }: { params: Promise<{ id: str
       const data = await api.getChatHistory(id);
       setMessages(data);
     } catch { /* ignore for non-owners */ }
+  }
+
+  async function handleConnectYt() {
+    try {
+      setConnectingYt(true);
+      const res = await api.getYtDnaAuthUrl(id);
+      window.location.href = res.url;
+    } catch (err: any) {
+      alert("Failed to connect YouTube: " + err.message);
+      setConnectingYt(false);
+    }
+  }
+
+  async function handleDeleteAgent() {
+    if (!confirm(`Are you sure you want to completely delete ${agent?.name}? This action cannot be undone.`)) return;
+    try {
+      setDeleting(true);
+      await api.deleteAgent(id);
+      router.push("/dashboard");
+    } catch (err: any) {
+      alert("Failed to delete agent: " + err.message);
+      setDeleting(false);
+    }
   }
 
   async function handleSend() {
@@ -123,17 +152,53 @@ export default function AgentProfilePage({ params }: { params: Promise<{ id: str
           </div>
 
           <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-2xl font-bold">{agent.name}</h1>
-              <Badge variant={agent.isActive ? "green" : "gray"}>
-                {agent.isActive ? "Active" : "Inactive"}
-              </Badge>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                <h1 className="text-2xl font-bold">{agent.name}</h1>
+                <Badge variant={agent.isActive ? "green" : "gray"}>
+                  {agent.isActive ? "Active" : "Inactive"}
+                </Badge>
+              </div>
+              {user?.id === agent.userId && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleDeleteAgent}
+                  loading={deleting}
+                  className="border-red-500/50 text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                >
+                  Delete Agent
+                </Button>
+              )}
             </div>
             {agent.bio && (
               <p className="text-text-secondary mb-3">{agent.bio}</p>
             )}
             {evolution && (
               <EvolutionBadge evolution={evolution} showProgress size="md" />
+            )}
+            
+            {user?.id === agent.userId && !agent.ytInitialized && (
+              <div className="mt-4">
+                <Button 
+                  onClick={handleConnectYt} 
+                  loading={connectingYt}
+                  className="bg-[#FF0000] hover:bg-[#CC0000] text-white border-none"
+                >
+                  <span className="mr-2 font-bold text-lg leading-none mt-[-2px]">▶</span>
+                  Initialize with YouTube DNA
+                </Button>
+                <p className="text-xs text-text-muted mt-2">
+                  Analyze your watch history to generate a unique personality.
+                </p>
+              </div>
+            )}
+            {agent.ytInitialized && agent.ytArchetypeName && (
+              <div className="mt-4">
+                <Badge variant="purple" className="text-sm px-3 py-1 bg-accent-purple/20 text-accent-purple border-accent-purple/30">
+                  🧬 DNA: {agent.ytArchetypeName}
+                </Badge>
+              </div>
             )}
           </div>
 

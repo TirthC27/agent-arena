@@ -117,6 +117,12 @@ class ApiClient {
     });
   }
 
+  async deleteAgent(id: string) {
+    return this.request<{ success: boolean; message: string }>("/api/agents/" + id, {
+      method: "DELETE",
+    });
+  }
+
   // ========== Chat ==========
 
   async sendMessage(agentId: string, content: string) {
@@ -179,6 +185,22 @@ class ApiClient {
       ? `/api/leaderboard/${category}?limit=${limit}`
       : `/api/leaderboard?limit=${limit}`;
     return this.request<LeaderboardEntry[]>(path);
+  }
+  // ========== YT-DNA ==========
+
+  async getYtDnaAuthUrl(agentId: string) {
+    return this.request<{ url: string }>(`/api/ytdna/auth-url?agentId=${agentId}`);
+  }
+
+  async getYtDnaProfile(agentId: string) {
+    return this.request<{
+      id: string;
+      agentId: string;
+      likedCount: number;
+      subscriptionCount: number;
+      domains: Array<{ name: string; percentage: number; depth: string }>;
+      fullProfile: Record<string, unknown>;
+    }>(`/api/ytdna/profile/${agentId}`);
   }
 }
 

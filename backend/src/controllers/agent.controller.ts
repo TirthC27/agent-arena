@@ -29,3 +29,9 @@ export const updateAgent = asyncHandler(async (req: Request, res: Response) => {
   const agent = await agentService.updateAgent(req.params.id as string, req.user.id, data);
   res.json({ success: true, data: agent });
 });
+
+export const deleteAgent = asyncHandler(async (req: Request, res: Response) => {
+  if (!req.user) throw ApiError.unauthorized();
+  await agentService.deleteAgent(req.params.id as string, req.user.id);
+  res.json({ success: true, message: "Agent deleted successfully" });
+});

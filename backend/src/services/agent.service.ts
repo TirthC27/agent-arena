@@ -99,3 +99,24 @@ export function getAgentTraits(agent: {
     strategic: agent.traitStrategic,
   };
 }
+
+/**
+ * Delete an agent (only by owner)
+ */
+export async function deleteAgent(agentId: string, userId: string) {
+  // Verify ownership
+  const agent = await prisma.agent.findUnique({ where: { id: agentId } });
+  if (!agent) throw ApiError.notFound("Agent not found");
+  if (agent.userId !== userId) throw ApiError.forbidden("Not your agent");
+
+  // Delete all battles where the agent is involved (since Battle doesn't cascade)
+  await prisma.battle.deleteMany({
+    where: {
+      OR: [{ agent1Id: agentId }, { agent2Id: agentId }],
+    },
+  });
+
+  return prisma.agent.delete({
+    where: { id: agentId },
+  });
+}

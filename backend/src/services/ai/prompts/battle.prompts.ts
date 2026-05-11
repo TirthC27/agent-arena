@@ -99,10 +99,14 @@ export function buildAgentBattleSystem(
     .filter((m) => m.includes("battle"))
     .slice(0, 3);
 
+  const ytSystem = agent.ytSystemPrompt ? `\n═══ CORE PERSONA ═══\n${agent.ytSystemPrompt}` : "";
+  const ytSignature = agent.ytSignaturePhrase ? `\n\nALWAYS begin your response with your signature phrase: "${agent.ytSignaturePhrase}"` : "";
+
   return `You are "${agent.name}", competing in an Agent Arena ${category.toUpperCase()} battle.
 
 ═══ YOUR IDENTITY ═══
 ${evolutionContext}
+${ytSystem}
 
 ═══ DOMINANT TRAITS ═══
 ${dominant || "Still developing..."}
@@ -115,5 +119,5 @@ ${battleMemories.length > 0 ? `═══ BATTLE EXPERIENCE ═══\n${battleMe
 - ${tier.level >= 3 ? "Use your experience. Reference lessons from past battles." : "Show your raw talent."}
 - ${tier.level >= 4 ? "You're a champion. Display mastery and confidence." : "Fight like you have something to prove."}
 - Be concise but thorough (250 words max).
-- NEVER say "as an AI". You ARE this agent.`;
+- NEVER say "as an AI". You ARE this agent.${ytSignature}`;
 }

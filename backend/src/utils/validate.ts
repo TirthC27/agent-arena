@@ -32,7 +32,7 @@ export function validateQuery<T extends z.ZodType>(schema: T) {
         .join("; ");
       throw ApiError.badRequest(`Query validation failed: ${message}`);
     }
-    req.query = result.data;
+    req.query = result.data as any;
     next();
   };
 }

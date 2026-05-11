@@ -15,6 +15,14 @@ export const env = {
 
   // Database (handled by Prisma via DATABASE_URL)
 
+  // Google OAuth (YouTube)
+  GOOGLE_CLIENT_ID: process.env.GOOGLE_CLIENT_ID || "",
+  GOOGLE_CLIENT_SECRET: process.env.GOOGLE_CLIENT_SECRET || "",
+  GOOGLE_REDIRECT_URI: process.env.GOOGLE_REDIRECT_URI || "http://localhost:3001/api/ytdna/callback",
+
+  // Anthropic
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || "",
+
   // OpenRouter
   OPENROUTER_API_KEY: requireEnv("OPENROUTER_API_KEY"),
   OPENROUTER_BASE_URL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",

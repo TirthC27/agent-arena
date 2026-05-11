@@ -16,4 +16,7 @@ router.get("/:id", agentController.getAgent);
 // PATCH /api/agents/:id — Update an agent (auth required, owner only)
 router.patch("/:id", auth, agentController.updateAgent);
 
+// DELETE /api/agents/:id — Delete an agent (auth required, owner only)
+router.delete("/:id", auth, agentController.deleteAgent);
+
 export default router;
