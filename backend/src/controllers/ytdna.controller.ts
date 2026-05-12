@@ -28,7 +28,7 @@ export const handleCallback = asyncHandler(async (req: Request, res: Response) =
     error?: string;
   };
 
-  const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost:3000";
+  const FRONTEND_URL = process.env.FRONTEND_URL || "https://agent-arena-chi-amber.vercel.app";
 
   if (error) {
     return res.redirect(`${FRONTEND_URL}/yt-dna?error=${encodeURIComponent(error)}`);

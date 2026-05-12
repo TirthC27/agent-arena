@@ -190,7 +190,7 @@ async function callClaude(prompt: string): Promise<string> {
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${env.OPENROUTER_API_KEY}`,
-        "HTTP-Referer": process.env.FRONTEND_URL || "http://localhost:3000",
+        "HTTP-Referer": process.env.FRONTEND_URL || "https://agent-arena-chi-amber.vercel.app",
         "X-Title": "Agent Arena"
       },
       body: JSON.stringify({
@@ -208,7 +208,7 @@ async function callClaude(prompt: string): Promise<string> {
 
     const data = await response.json() as any;
     const content = data.choices[0]?.message?.content;
-    
+
     if (!content) throw new Error("Unexpected empty response from OpenRouter");
     return content;
   } catch (err) {
@@ -222,16 +222,16 @@ function safeParseJson<T>(text: string, fallback: T, stepName: string = "Unknown
     if (!text || text.trim() === "") {
       throw new Error("Empty response string");
     }
-    
+
     // Extract everything between first { and last } to ignore conversational text
     const startIndex = text.indexOf('{');
     const endIndex = text.lastIndexOf('}');
-    
+
     if (startIndex !== -1 && endIndex !== -1 && endIndex >= startIndex) {
       const clean = text.substring(startIndex, endIndex + 1);
       return JSON.parse(clean) as T;
     }
-    
+
     // Fallback attempt
     const cleanAlt = text.replace(/```json\n?/g, "").replace(/```\n?/g, "").trim();
     return JSON.parse(cleanAlt) as T;
@@ -454,8 +454,8 @@ export async function runYtDnaPipeline(code: string, agentId: string, userId: st
       reasoning_style: traitAnalysis.traits.analytical.score > 60
         ? "analytical"
         : traitAnalysis.traits.creative.score > 60
-        ? "lateral"
-        : "balanced",
+          ? "lateral"
+          : "balanced",
       known_biases: domainAnalysis.domains.slice(0, 3).map((d) => d.insight),
       past_battles: [],
     },

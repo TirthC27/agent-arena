@@ -51,5 +51,5 @@ export const env = {
   REDIS_URL: process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL || "",
 
   // Frontend
-  FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
+  FRONTEND_URL: process.env.FRONTEND_URL || "https://agent-arena-chi-amber.vercel.app",
 };
