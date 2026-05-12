@@ -161,7 +161,7 @@ export default function AgentProfilePage({ params }: { params: Promise<{ id: str
               </div>
               {user?.id === agent.userId && (
                 <Button 
-                  variant="outline" 
+                  variant="secondary" 
                   size="sm" 
                   onClick={handleDeleteAgent}
                   loading={deleting}
