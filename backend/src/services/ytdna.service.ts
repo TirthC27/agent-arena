@@ -206,7 +206,7 @@ async function callClaude(prompt: string): Promise<string> {
       throw new Error(`OpenRouter API Error: ${response.status} - ${errText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as any;
     const content = data.choices[0]?.message?.content;
     
     if (!content) throw new Error("Unexpected empty response from OpenRouter");

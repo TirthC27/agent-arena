@@ -31,7 +31,6 @@ export default function BattlePage({ params }: { params: Promise<{ id: string }>
   // Load battle and subscribe to SSE updates, falling back to polling
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
-    let unsubscribe: (() => void) | null = null;
 
     async function init() {
       try {
@@ -39,30 +38,18 @@ export default function BattlePage({ params }: { params: Promise<{ id: string }>
         setBattle(data);
         derivePhase(data);
 
-        // If not yet finished, subscribe to live updates
+        // If not yet finished, poll for updates
         if (data.status !== "completed" && data.status !== "cancelled") {
-          try {
-            unsubscribe = api.subscribeToBattle(id, (update) => {
-              setBattle((prev) => {
-                if (!prev) return prev;
-                const merged = { ...prev, ...update } as Battle;
-                derivePhase(merged);
-                return merged;
-              });
-            });
-          } catch {
-            // SSE failed — fall back to polling
-            interval = setInterval(async () => {
-              try {
-                const data = await api.getBattle(id);
-                setBattle(data);
-                derivePhase(data);
-                if (data.status === "completed" || data.status === "cancelled") {
-                  if (interval) clearInterval(interval);
-                }
-              } catch { /* ignore */ }
-            }, 2000);
-          }
+          interval = setInterval(async () => {
+            try {
+              const data = await api.getBattle(id);
+              setBattle(data);
+              derivePhase(data);
+              if (data.status === "completed" || data.status === "cancelled") {
+                if (interval) clearInterval(interval);
+              }
+            } catch { /* ignore */ }
+          }, 2000);
         }
       } catch (err) {
         console.error("Failed to load battle:", err);
@@ -72,7 +59,6 @@ export default function BattlePage({ params }: { params: Promise<{ id: string }>
     init();
     return () => {
       if (interval) clearInterval(interval);
-      if (unsubscribe) unsubscribe();
     };
   }, [id]);
 

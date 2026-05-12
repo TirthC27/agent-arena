@@ -42,4 +42,14 @@ export const env = {
   SOLANA_RPC_URL: process.env.SOLANA_RPC_URL || "https://api.devnet.solana.com",
   SOLANA_AUTHORITY_KEYPAIR: process.env.SOLANA_AUTHORITY_KEYPAIR || "[]",
   ANCHOR_PROGRAM_ID: process.env.ANCHOR_PROGRAM_ID || "AjEeXL7uxDbPp3EebeUH9g8uE59E66NHWuwYFUfS1n2L",
+
+  // Torque MCP
+  TORQUE_API_KEY: process.env.TORQUE_API_KEY || "",
+  TORQUE_API_URL: process.env.TORQUE_API_URL || "https://api.torque.so",
+
+  // Redis
+  REDIS_URL: process.env.REDIS_URL || process.env.UPSTASH_REDIS_URL || "",
+
+  // Frontend
+  FRONTEND_URL: process.env.FRONTEND_URL || "http://localhost:3000",
 };

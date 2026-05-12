@@ -23,9 +23,12 @@ function WalletButtonPlaceholder() {
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard", icon: "🏠" },
-  { href: "/arena", label: "Arena", icon: "⚔️" },
-  { href: "/leaderboard", label: "Leaderboard", icon: "🏆" },
+  { href: "/battle", label: "Battle", icon: "⚔️" },
+  { href: "/arena", label: "Campaigns", icon: "🏆" },
+  { href: "/training", label: "Training", icon: "🧠" },
+  { href: "/leaderboard", label: "Leaderboard", icon: "📊" },
 ];
+
 
 export default function Navbar() {
   const pathname = usePathname();

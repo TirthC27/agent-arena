@@ -1,5 +1,5 @@
-// This is your Prisma schema file for Agent Arena
-// Connected to Supabase PostgreSQL
+// Agent Arena — Complete Prisma Schema
+// Supabase PostgreSQL (pgvector-ready)
 
 generator client {
   provider = "prisma-client-js"
@@ -11,16 +11,28 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ============================================================
+// USER & AUTH
+// ============================================================
+
 model User {
   id            String    @id @default(cuid())
   walletAddress String    @unique
   username      String?   @unique
   avatarUrl     String?
+  email         String?   @unique
+  totalXP       Int       @default(0)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  agents        Agent[]
-  sessions      Session[]
+  agents           Agent[]
+  sessions         Session[]
+  torqueEvents     TorqueEvent[]
+  rewardClaims     RewardClaim[]
+  raffleEntries    RaffleEntry[]
+  streaks          Streak[]
+
+  @@index([walletAddress])
 }
 
 model Session {
@@ -36,6 +48,10 @@ model Session {
   @@index([userId])
 }
 
+// ============================================================
+// AGENT CORE
+// ============================================================
+
 model Agent {
   id          String   @id @default(cuid())
   userId      String
@@ -46,28 +62,33 @@ model Agent {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Personality traits (0-100 scale, null = not yet inferred)
-  traitAnalytical Int?
-  traitCreative   Int?
-  traitAggressive Int?
-  traitCautious   Int?
-  traitSocial     Int?
-  traitStrategic  Int?
+  // Personality traits (0-100 scale)
+  traitAnalytical   Int? 
+  traitCreative     Int?
+  traitAggressive   Int?
+  traitCautious     Int?
+  traitSocial       Int?
+  traitStrategic    Int?
 
-  // YT-DNA personality traits (0-100 scale, derived from YouTube watch history)
-  ytRiskAppetite     Int?
-  ytLogicDominance   Int?
-  ytCompetitiveness  Int?
+  // Extended personality (from evolution)
+  traitConfidence    Int @default(50)
+  traitRiskAppetite  Int @default(50)
+  traitCompetitive   Int @default(50)
+  traitAdaptability  Int @default(50)
+  traitEmotional     Int @default(50)
+
+  // YT-DNA personality traits
+  ytRiskAppetite      Int?
+  ytLogicDominance    Int?
+  ytCompetitiveness   Int?
   ytEmotionalStability Int?
-  ytAdaptability     Int?
-
-  // YT-DNA Agent Identity
-  ytArchetypeName   String?
-  ytSystemPrompt    String?
-  ytSignaturePhrase String?
-  ytBattleStyle     String?
-  ytWeakDomain      String?
-  ytInitialized     Boolean  @default(false)
+  ytAdaptability      Int?
+  ytArchetypeName     String?
+  ytSystemPrompt      String?
+  ytSignaturePhrase   String?
+  ytBattleStyle       String?
+  ytWeakDomain        String?
+  ytInitialized       Boolean @default(false)
 
   // ELO ratings per category
   eloKnowledge    Int @default(1000)
@@ -75,6 +96,9 @@ model Agent {
   eloProductivity Int @default(1000)
   eloPrediction   Int @default(1000)
   eloSocial       Int @default(1000)
+  eloMusic        Int @default(1000)
+  eloCoding       Int @default(1000)
+  eloDebate       Int @default(1000)
   eloOverall      Int @default(1000)
 
   // Stats
@@ -83,6 +107,25 @@ model Agent {
   totalDraws    Int @default(0)
   winStreak     Int @default(0)
   bestWinStreak Int @default(0)
+  totalBattles  Int @default(0)
+
+  // XP & Level
+  xp           Int @default(0)
+  level        Int @default(1)
+  energy       Int @default(100) // 0-100
+
+  // Specialization
+  dominantDomain    String? // e.g., "music", "coding"
+  specializationTag String? // e.g., "Music Strategist"
+
+  // Treasury
+  devnetBalance Float @default(0.0) // SOL on devnet
+  treasuryAddress String?
+
+  // Meta
+  personalityVersion Int @default(0)
+  lastTrainedAt      DateTime?
+  lastBattleAt       DateTime?
 
   user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   memories        AgentMemory[]
@@ -91,35 +134,54 @@ model Agent {
   battlesAsAgent2 Battle[]      @relation("BattleAgent2")
   battlesWon      Battle[]      @relation("BattleWinner")
   ytDnaProfile    YtDnaProfile?
+  skills          AgentSkill[]
+  trainingSessions TrainingSession[]
+  campaignEntries  CampaignEntry[]
+  leaderboardEntries LeaderboardEntry[]
+  walletTransactions WalletTransaction[]
+  torqueEvents     TorqueEvent[]
+  streaks          Streak[]
+  thoughts         AgentThought[]
+  autonomousActions AutonomousAction[]
+  createdCampaigns Campaign[]   @relation("CampaignCreator")
 
   @@unique([userId, name])
   @@index([userId])
   @@index([eloOverall(sort: Desc)])
+  @@index([xp(sort: Desc)])
+  @@index([level(sort: Desc)])
 }
 
-model YtDnaProfile {
-  id        String   @id @default(cuid())
-  agentId   String   @unique
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+// ============================================================
+// SKILLS SYSTEM
+// ============================================================
 
-  // Raw stats
-  likedCount        Int @default(0)
-  subscriptionCount Int @default(0)
-
-  // Domains JSON array
-  domains Json
-
-  // Full profile JSON (archetype + memory)
-  fullProfile Json
+model AgentSkill {
+  id             String   @id @default(cuid())
+  agentId        String
+  domain         String   // "logic" | "coding" | "music" | "trading" | "creativity" | "persuasion" | "memory" | "speed" | "strategy"
+  level          Int      @default(1)
+  xp             Int      @default(0)
+  confidence     Float    @default(0.5) // 0.0-1.0
+  specialization String?  // e.g., "jazz_analysis", "python_optimization"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@unique([agentId, domain])
+  @@index([agentId])
+  @@index([domain, xp(sort: Desc)])
 }
+
+// ============================================================
+// MEMORY SYSTEM
+// ============================================================
 
 model AgentMemory {
   id        String   @id @default(cuid())
   agentId   String
-  type      String   // "chat_summary" | "battle_lesson" | "personality_update"
+  type      String   // "chat_summary" | "battle_lesson" | "personality_update" | "training_insight" | "campaign_result"
   content   String
   weight    Float    @default(1.0)
   metadata  Json?
@@ -144,10 +206,15 @@ model ChatMessage {
   @@index([agentId, createdAt])
 }
 
+// ============================================================
+// BATTLES
+// ============================================================
+
 model Battle {
   id       String @id @default(cuid())
-  category String // "knowledge" | "strategy" | "productivity" | "prediction" | "social"
+  category String // "knowledge" | "strategy" | "productivity" | "prediction" | "social" | "music" | "coding" | "debate"
   status   String @default("pending") // "pending" | "in_progress" | "completed" | "cancelled"
+  type     String @default("1v1") // "1v1" | "tournament" | "async" | "challenge"
 
   agent1Id String
   agent2Id String
@@ -157,7 +224,7 @@ model Battle {
   prompt         String?
   agent1Response String?
   agent2Response String?
-  judgement       String?
+  judgement      String?
   score1         Int?
   score2         Int?
 
@@ -165,22 +232,41 @@ model Battle {
   eloChange1 Int?
   eloChange2 Int?
 
+  // XP awarded
+  xpAwarded1 Int @default(0)
+  xpAwarded2 Int @default(0)
+
   // On-chain proof
   txSignature String?
 
-  rounds      BattleRound[]
-  createdAt   DateTime      @default(now())
-  completedAt DateTime?
+  // Campaign link
+  campaignId String?
 
-  agent1 Agent  @relation("BattleAgent1", fields: [agent1Id], references: [id])
-  agent2 Agent  @relation("BattleAgent2", fields: [agent2Id], references: [id])
-  winner Agent? @relation("BattleWinner", fields: [winnerId], references: [id])
+  // Tournament link
+  tournamentId String?
+
+  // Anti-cheat
+  ipHash        String?
+  verifiedAt    DateTime?
+  flagged       Boolean @default(false)
+  flagReason    String?
+
+  rounds       BattleRound[]
+  createdAt    DateTime      @default(now())
+  completedAt  DateTime?
+
+  agent1   Agent   @relation("BattleAgent1", fields: [agent1Id], references: [id])
+  agent2   Agent   @relation("BattleAgent2", fields: [agent2Id], references: [id])
+  winner   Agent?  @relation("BattleWinner", fields: [winnerId], references: [id])
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+  tournament Tournament? @relation(fields: [tournamentId], references: [id])
 
   @@index([agent1Id])
   @@index([agent2Id])
   @@index([status])
   @@index([category])
   @@index([createdAt(sort: Desc)])
+  @@index([campaignId])
 }
 
 model BattleRound {
@@ -191,7 +277,7 @@ model BattleRound {
   agent1Response String?
   agent2Response String?
   roundWinnerId  String?
-  judgement       String?
+  judgement      String?
   score1         Int?
   score2         Int?
 
@@ -200,3 +286,368 @@ model BattleRound {
   @@unique([battleId, roundNumber])
 }
 
+// ============================================================
+// CAMPAIGNS
+// ============================================================
+
+model Campaign {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  domain      String   // which skill domain this campaign focuses on
+  type        String   // "weekly" | "daily" | "seasonal" | "special" | "tournament_qualifier" | "agent_created" | "rivalry" | "challenge"
+  status      String   @default("upcoming") // "upcoming" | "active" | "completed" | "cancelled"
+
+  // Agent that created this campaign (null = system-generated)
+  creatorAgentId String?
+  creatorAgent   Agent?   @relation("CampaignCreator", fields: [creatorAgentId], references: [id])
+
+  // Timing
+  startAt     DateTime
+  endAt       DateTime
+  createdAt   DateTime @default(now())
+
+  // Rewards
+  prizePool     Float  @default(0.0) // SOL
+  xpMultiplier  Float  @default(1.0)
+  rewardTier    String @default("bronze") // "bronze" | "silver" | "gold" | "legendary"
+  torqueCampaignId String?  // Torque MCP campaign ID
+  raffleEnabled Boolean @default(false)
+  raffleTicketsPerWin Int @default(1)
+
+  // Entry
+  entryFeeSOL   Float  @default(0.0)
+  maxParticipants Int  @default(100)
+  minElo        Int    @default(0)
+  maxElo        Int?
+
+  // Scoring
+  skillWeights  Json   // { logic: 1.5, strategy: 1.2, ... }
+  
+  // Metadata
+  emoji       String  @default("🏆")
+  bannerUrl   String?
+  tags        String[] @default([])
+
+  entries     CampaignEntry[]
+  battles     Battle[]
+  leaderboard LeaderboardEntry[]
+  rewards     Reward[]
+
+  @@index([status, startAt])
+  @@index([domain])
+}
+
+model CampaignEntry {
+  id         String   @id @default(cuid())
+  campaignId String
+  agentId    String
+  userId     String
+  joinedAt   DateTime @default(now())
+
+  // Performance
+  score      Int      @default(0)
+  wins       Int      @default(0)
+  losses     Int      @default(0)
+  rank       Int?
+  xpEarned   Int      @default(0)
+  raffleTickets Int   @default(0)
+  rewardClaimed Boolean @default(false)
+
+  campaign Campaign @relation(fields: [campaignId], references: [id])
+  agent    Agent    @relation(fields: [agentId], references: [id])
+
+  @@unique([campaignId, agentId])
+  @@index([campaignId, score(sort: Desc)])
+}
+
+// ============================================================
+// TOURNAMENTS
+// ============================================================
+
+model Tournament {
+  id          String   @id @default(cuid())
+  name        String
+  domain      String
+  status      String   @default("upcoming") // "upcoming" | "registration" | "active" | "completed"
+  format      String   @default("single_elimination") // "single_elimination" | "double_elimination" | "round_robin"
+  
+  maxParticipants Int  @default(16)
+  entryFeeSOL    Float @default(0.0)
+  prizePoolSOL   Float @default(0.0)
+
+  startAt   DateTime
+  endAt     DateTime?
+  createdAt DateTime @default(now())
+
+  torqueTournamentId String?
+
+  battles     Battle[]
+  participants TournamentParticipant[]
+
+  @@index([status, startAt])
+}
+
+model TournamentParticipant {
+  id           String   @id @default(cuid())
+  tournamentId String
+  agentId      String
+  seed         Int?
+  eliminated   Boolean  @default(false)
+  finalRank    Int?
+  joinedAt     DateTime @default(now())
+
+  tournament Tournament @relation(fields: [tournamentId], references: [id])
+
+  @@unique([tournamentId, agentId])
+}
+
+// ============================================================
+// LEADERBOARD
+// ============================================================
+
+model LeaderboardEntry {
+  id         String   @id @default(cuid())
+  agentId    String
+  type       String   // "global" | "domain_music" | "domain_coding" | "weekly" | "monthly" | "season_1" | etc.
+  rank       Int
+  score      Int      // ELO or XP depending on type
+  campaignId String?
+  period     String?  // "2026-W20" or "2026-05" for weekly/monthly
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  agent    Agent     @relation(fields: [agentId], references: [id])
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+
+  @@unique([agentId, type, period])
+  @@index([type, rank])
+  @@index([type, score(sort: Desc)])
+}
+
+// ============================================================
+// TRAINING
+// ============================================================
+
+model TrainingSession {
+  id        String   @id @default(cuid())
+  agentId   String
+  domain    String   // which skill domain was trained
+  type      String   // "autonomous" | "user_initiated" | "campaign_prep"
+  status    String   @default("completed") // "running" | "completed" | "failed"
+  
+  prompt    String?
+  result    String?  // training output
+  xpGained  Int      @default(0)
+  skillGain Json?    // { domain: "coding", deltaXP: 50, deltaLevel: 0 }
+  cost      Float    @default(0.0) // SOL spent on premium training
+
+  duration  Int      @default(0) // milliseconds
+  createdAt DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@index([agentId, domain])
+}
+
+// ============================================================
+// REWARDS & ECONOMY
+// ============================================================
+
+model Reward {
+  id         String   @id @default(cuid())
+  campaignId String?
+  type       String   // "campaign_winner" | "streak_bonus" | "daily_login" | "tournament_winner" | "raffle_prize"
+  title      String
+  description String
+  valueSOL   Float    @default(0.0)
+  valueXP    Int      @default(0)
+  rarity     String   @default("common") // "common" | "rare" | "epic" | "legendary"
+  expiresAt  DateTime?
+  createdAt  DateTime @default(now())
+
+  campaign Campaign? @relation(fields: [campaignId], references: [id])
+  claims   RewardClaim[]
+
+  @@index([campaignId])
+}
+
+model RewardClaim {
+  id        String   @id @default(cuid())
+  userId    String
+  rewardId  String
+  claimedAt DateTime @default(now())
+  txSignature String? // if on-chain
+
+  user   User   @relation(fields: [userId], references: [id])
+  reward Reward @relation(fields: [rewardId], references: [id])
+
+  @@unique([userId, rewardId])
+}
+
+// ============================================================
+// RAFFLES
+// ============================================================
+
+model Raffle {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  prizeSOL    Float    @default(0.0)
+  prizeTitle  String
+  status      String   @default("active") // "active" | "drawn" | "cancelled"
+  drawAt      DateTime
+  createdAt   DateTime @default(now())
+
+  torqueRaffleId String?
+  winnerId       String?
+
+  entries RaffleEntry[]
+
+  @@index([status, drawAt])
+}
+
+model RaffleEntry {
+  id       String   @id @default(cuid())
+  raffleId String
+  userId   String
+  tickets  Int      @default(1)
+  earnedAt DateTime @default(now())
+
+  raffle Raffle @relation(fields: [raffleId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([raffleId, userId])
+}
+
+// ============================================================
+// STREAKS
+// ============================================================
+
+model Streak {
+  id            String   @id @default(cuid())
+  userId        String
+  agentId       String?
+  type          String   // "daily_battle" | "daily_train" | "win_streak" | "campaign_participate"
+  currentStreak Int      @default(0)
+  longestStreak Int      @default(0)
+  lastActivityAt DateTime?
+  streakStartAt  DateTime?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user  User  @relation(fields: [userId], references: [id])
+  agent Agent? @relation(fields: [agentId], references: [id])
+
+  @@unique([userId, type])
+  @@index([userId])
+}
+
+// ============================================================
+// TORQUE EVENTS
+// ============================================================
+
+model TorqueEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  agentId   String?
+  eventType String   // "agent_created" | "battle_completed" | "level_up" | etc.
+  payload   Json
+  status    String   @default("pending") // "pending" | "sent" | "failed" | "skipped"
+  attempts  Int      @default(0)
+  sentAt    DateTime?
+  error     String?
+  createdAt DateTime @default(now())
+
+  user  User?  @relation(fields: [userId], references: [id])
+  agent Agent? @relation(fields: [agentId], references: [id])
+
+  @@index([status, createdAt])
+  @@index([userId])
+  @@index([eventType])
+}
+
+// ============================================================
+// AGENT WALLET & TREASURY
+// ============================================================
+
+model WalletTransaction {
+  id          String   @id @default(cuid())
+  agentId     String
+  type        String   // "deposit" | "withdrawal" | "training_spend" | "tournament_fee" | "reward_received"
+  amount      Float    // SOL amount
+  balanceBefore Float
+  balanceAfter  Float
+  description String
+  txSignature String?
+  status      String   @default("confirmed") // "pending" | "confirmed" | "failed"
+  createdAt   DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id])
+
+  @@index([agentId, createdAt(sort: Desc)])
+}
+
+// ============================================================
+// AGENT THOUGHTS (internal AI reasoning)
+// ============================================================
+
+model AgentThought {
+  id        String   @id @default(cuid())
+  agentId   String
+  type      String   // "strategic_analysis" | "campaign_idea" | "risk_evaluation" | "rivalry_assessment" | "ecosystem_scan" | "treasury_plan"
+  content   String   // The actual thought content
+  reasoning String?  // Why the agent had this thought
+  actionTaken String? // What action resulted from this thought
+  confidence Float   @default(0.5) // 0.0-1.0 confidence in the thought
+  metadata  Json?
+  createdAt DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, type])
+  @@index([agentId, createdAt(sort: Desc)])
+  @@index([type, createdAt(sort: Desc)])
+}
+
+// ============================================================
+// AUTONOMOUS ACTIONS (what agents do on their own)
+// ============================================================
+
+model AutonomousAction {
+  id          String   @id @default(cuid())
+  agentId     String
+  actionType  String   // "campaign_created" | "campaign_joined" | "challenge_issued" | "training_initiated" | "treasury_spent" | "raffle_created" | "rival_campaign"
+  description String
+  result      String?  // outcome of the action
+  cost        Float    @default(0.0) // SOL spent
+  xpGained    Int      @default(0)
+  success     Boolean  @default(true)
+  metadata    Json?
+  thoughtId   String?  // link to the thought that triggered this
+  createdAt   DateTime @default(now())
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+
+  @@index([agentId, createdAt(sort: Desc)])
+  @@index([actionType, createdAt(sort: Desc)])
+}
+
+// ============================================================
+// YT-DNA (existing)
+// ============================================================
+
+model YtDnaProfile {
+  id        String   @id @default(cuid())
+  agentId   String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  likedCount        Int @default(0)
+  subscriptionCount Int @default(0)
+  domains           Json
+  fullProfile       Json
+
+  agent Agent @relation(fields: [agentId], references: [id], onDelete: Cascade)
+}

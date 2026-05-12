@@ -161,7 +161,7 @@ export default function AgentProfilePage({ params }: { params: Promise<{ id: str
               </div>
               {user?.id === agent.userId && (
                 <Button 
-                  variant="outline" 
+                  variant="danger" 
                   size="sm" 
                   onClick={handleDeleteAgent}
                   loading={deleting}
@@ -195,7 +195,7 @@ export default function AgentProfilePage({ params }: { params: Promise<{ id: str
             )}
             {agent.ytInitialized && agent.ytArchetypeName && (
               <div className="mt-4">
-                <Badge variant="purple" className="text-sm px-3 py-1 bg-accent-purple/20 text-accent-purple border-accent-purple/30">
+                <Badge variant="purple">
                   🧬 DNA: {agent.ytArchetypeName}
                 </Badge>
               </div>
