@@ -224,7 +224,7 @@ export default function BattlePage() {
     fetchBattles();
 
     // WebSocket for live updates
-    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "http://localhost:3001";
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL?.replace("/api", "") || "https://agent-arena-750648121075.asia-south1.run.app";
     const socket = ioClient(backendUrl, { transports: ["websocket", "polling"] });
     socketRef.current = socket;
 

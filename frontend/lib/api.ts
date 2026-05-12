@@ -8,7 +8,7 @@ import {
   LeaderboardEntry,
 } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://agent-arena-750648121075.asia-south1.run.app";
 
 class ApiClient {
   private token: string | null = null;

@@ -16,7 +16,12 @@ const httpServer = createServer(app);
 // ========== WebSocket Server ==========
 const io = new SocketServer(httpServer, {
   cors: {
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://agent-arena-chi-amber.vercel.app"
+    ],
     credentials: true,
   },
   transports: ["websocket", "polling"],
@@ -52,7 +57,12 @@ io.on("connection", (socket) => {
 // ========== Global Middleware ==========
 app.use(
   cors({
-    origin: process.env.FRONTEND_URL || "http://localhost:3000",
+    origin: [
+      process.env.FRONTEND_URL || "http://localhost:3000",
+      "http://localhost:3000",
+      "http://localhost:3001",
+      "https://agent-arena-chi-amber.vercel.app"
+    ],
     credentials: true,
   })
 );
