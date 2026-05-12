@@ -15,10 +15,9 @@ class ApiClient {
 
   setToken(token: string | null) {
     this.token = token;
-    if (token) {
-      localStorage.setItem("arena_token", token);
-    } else {
-      localStorage.removeItem("arena_token");
+    if (typeof window !== "undefined") {
+      if (token) localStorage.setItem("arena_token", token);
+      else localStorage.removeItem("arena_token");
     }
   }
 
@@ -32,10 +31,7 @@ class ApiClient {
     return this.token;
   }
 
-  private async request<T>(
-    path: string,
-    options?: RequestInit
-  ): Promise<T> {
+  private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const res = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
@@ -45,22 +41,48 @@ class ApiClient {
       },
     });
 
-    // Guard against non-JSON responses (e.g. HTML error pages, proxy errors)
     const contentType = res.headers.get("Content-Type") || "";
     if (!contentType.includes("application/json")) {
       const text = await res.text();
-      throw new Error(
-        `API error: ${res.status} — expected JSON but got ${contentType || "unknown"}. Body: ${text.substring(0, 200)}`
-      );
+      throw new Error(`API error: ${res.status} — expected JSON. Body: ${text.slice(0, 200)}`);
     }
 
     const data: ApiResponse<T> = await res.json();
 
     if (!res.ok || !data.success) {
-      throw new Error(data.error || `API error: ${res.status}`);
+      throw new Error((data as any).error || `API error: ${res.status}`);
     }
 
     return data.data;
+  }
+
+  // Generic helpers for new routes
+  async get(path: string) {
+    return fetch(`${API_URL}/api${path}`, {
+      headers: {
+        "Content-Type": "application/json",
+        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+      },
+    }).then(async (r) => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      return data;
+    });
+  }
+
+  async post(path: string, body?: unknown) {
+    return fetch(`${API_URL}/api${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(this.token && { Authorization: `Bearer ${this.token}` }),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    }).then(async (r) => {
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error || `HTTP ${r.status}`);
+      return data;
+    });
   }
 
   // ========== Auth ==========
@@ -86,9 +108,8 @@ class ApiClient {
   async logout() {
     try {
       await this.request<void>("/api/auth/logout", { method: "POST" });
-    } catch {
-      // Ignore — server-side session cleanup is best-effort
-    } finally {
+    } catch {}
+    finally {
       this.setToken(null);
     }
   }
@@ -140,52 +161,81 @@ class ApiClient {
 
   async joinQueue(agentId: string, category: string) {
     return this.request<{ matched: boolean; battleId?: string; position?: number }>(
-      "/api/battles/queue",
-      {
-        method: "POST",
-        body: JSON.stringify({ agentId, category }),
-      }
+      "/api/battle/queue",
+      { method: "POST", body: JSON.stringify({ agentId, category }) }
     );
   }
 
   async getBattle(id: string) {
-    return this.request<Battle>("/api/battles/" + id);
+    return this.request<Battle>("/api/battle/" + id);
   }
 
   async getBattleHistory(agentId: string) {
-    return this.request<Battle[]>("/api/battles/history/" + agentId);
+    return this.request<Battle[]>("/api/battle/history/" + agentId);
   }
 
-  /**
-   * Subscribe to live battle updates via SSE
-   */
-  subscribeToBattle(battleId: string, onUpdate: (data: Partial<Battle>) => void) {
-    const source = new EventSource(`${API_URL}/api/battles/${battleId}/live`);
+  // ========== Training ==========
 
-    source.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        onUpdate(data);
-      } catch {
-        // ignore parse errors
-      }
-    };
+  async trainAgent(agentId: string, domain: string) {
+    return this.request<any>("/api/training/train", {
+      method: "POST",
+      body: JSON.stringify({ agentId, domain }),
+    });
+  }
 
-    source.onerror = () => {
-      source.close();
-    };
+  async getAgentSkills(agentId: string) {
+    return this.request<any[]>("/api/training/skills/" + agentId);
+  }
 
-    return () => source.close();
+  // ========== Campaigns ==========
+
+  async getCampaigns() {
+    return this.request<any[]>("/api/campaign");
+  }
+
+  async getCampaign(id: string) {
+    return this.request<any>("/api/campaign/" + id);
+  }
+
+  async joinCampaign(campaignId: string, agentId: string) {
+    return this.request<any>("/api/campaign/join", {
+      method: "POST",
+      body: JSON.stringify({ campaignId, agentId }),
+    });
   }
 
   // ========== Leaderboard ==========
 
-  async getLeaderboard(category?: string, limit = 50) {
-    const path = category
-      ? `/api/leaderboard/${category}?limit=${limit}`
-      : `/api/leaderboard?limit=${limit}`;
-    return this.request<LeaderboardEntry[]>(path);
+  async getLeaderboard(type = "global", limit = 50) {
+    return this.request<LeaderboardEntry[]>(`/api/leaderboard?type=${type}&limit=${limit}`);
   }
+
+  // ========== Wallet ==========
+
+  async fundAgent(agentId: string, amountSOL: number, txSignature?: string) {
+    return this.request<any>("/api/wallet/fund", {
+      method: "POST",
+      body: JSON.stringify({ agentId, amountSOL, txSignature }),
+    });
+  }
+
+  async getAgentBalance(agentId: string) {
+    return this.request<{ balance: number }>("/api/wallet/balance/" + agentId);
+  }
+
+  // ========== Rewards ==========
+
+  async getRewards() {
+    return this.request<any[]>("/api/rewards");
+  }
+
+  async claimReward(rewardId: string) {
+    return this.request<any>("/api/rewards/claim", {
+      method: "POST",
+      body: JSON.stringify({ rewardId }),
+    });
+  }
+
   // ========== YT-DNA ==========
 
   async getYtDnaAuthUrl(agentId: string) {
@@ -193,15 +243,47 @@ class ApiClient {
   }
 
   async getYtDnaProfile(agentId: string) {
-    return this.request<{
-      id: string;
-      agentId: string;
-      likedCount: number;
-      subscriptionCount: number;
-      domains: Array<{ name: string; percentage: number; depth: string }>;
-      fullProfile: Record<string, unknown>;
-    }>(`/api/ytdna/profile/${agentId}`);
+    return this.request<any>(`/api/ytdna/profile/${agentId}`);
+  }
+
+  // ========== Autonomy (Agent AI) ==========
+
+  async getAgentThoughts(agentId: string, limit = 20) {
+    return this.request<any[]>(`/api/autonomy/thoughts/${agentId}?limit=${limit}`);
+  }
+
+  async getEcosystemThoughts(limit = 20) {
+    return this.request<any[]>(`/api/autonomy/thoughts?limit=${limit}`);
+  }
+
+  async getAgentActions(agentId: string, limit = 20) {
+    return this.request<any[]>(`/api/autonomy/actions/${agentId}?limit=${limit}`);
+  }
+
+  async getEcosystemActions(limit = 30) {
+    return this.request<any[]>(`/api/autonomy/actions?limit=${limit}`);
+  }
+
+  async triggerAgentDecision(agentId: string) {
+    return this.request<any>(`/api/autonomy/decide/${agentId}`, { method: "POST" });
+  }
+
+  async getCampaignStats() {
+    return this.request<any>(`/api/campaign/stats`);
+  }
+
+  async getEcosystemEngagement() {
+    return this.request<any>(`/api/autonomy/engagement`);
+  }
+
+  async getAgentEngagement(agentId: string) {
+    return this.request<any>(`/api/autonomy/engagement/${agentId}`);
+  }
+
+  async getAgentCreatedCampaigns(agentId: string) {
+    return this.request<any[]>(`/api/autonomy/campaigns-by-agent/${agentId}`);
   }
 }
 
 export const api = new ApiClient();
+

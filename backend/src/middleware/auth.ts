@@ -55,3 +55,6 @@ export const auth = asyncHandler(async (req: Request, _res: Response, next: Next
     throw ApiError.unauthorized("Invalid token");
   }
 });
+
+// Alias for new routes
+export const authenticate = auth;
