@@ -79,7 +79,7 @@ app.use("/api", routes);
 app.use(errorHandler);
 
 // ========== Start Server ==========
-httpServer.listen(env.PORT, () => {
+httpServer.listen(Number(env.PORT) || 8080, "0.0.0.0", () => {
   console.log(`
   ╔══════════════════════════════════════════╗
   ║      🏟️  Agent Arena Backend v2.0 🏟️      ║
